@@ -1,0 +1,175 @@
+################# STANDARD LICENSE ##################################
+#                                                                   #
+#   This file is a license for OpenEye Scientific Software.  Any    #
+#   modifications to this file may invalidate the license.          #
+#                                                                   #
+#   Pfizer, Inc.                                                    #
+#   Global Sites                                                    #
+#                                                                   #
+#   Mon Oct  2 09:56:28 2017                                        #
+#####################################################################
+#PRODUCT: afitt
+#EXP_DATE: 2018 10 02
+#FEATURES: beta
+#LICENSEE: Pfizer, Inc.
+#SITE: Global Sites
+LICENSE_KEY: 913a4fe8f314b28940e1b456712fda79f13b11db636f528a22deca04bbb32ca3
+#PRODUCT: bioisostere
+#EXP_DATE: 2018 10 02
+#LICENSEE: Pfizer, Inc.
+#SITE: Global Sites
+LICENSE_KEY: cb5d112bc1be3c05e213ab032a2e13cb0ef3b3d3dbc0e390f9860bbdd3aab600
+#PRODUCT: docking
+#EXP_DATE: 2018 10 02
+#FEATURES: python;java;clr
+#LICENSEE: Pfizer, Inc.
+#SITE: Global Sites
+LICENSE_KEY: dbc026a759a64c7205584984656bc0eea2a85b8029030ff57d0b1198f4e8ce74
+#PRODUCT: eon
+#EXP_DATE: 2018 10 02
+#LICENSEE: Pfizer, Inc.
+#SITE: Global Sites
+LICENSE_KEY: e8a10b8b89ef1911c4e81574c68ba6149d33ac323637a696a231b2a934937fea
+#PRODUCT: fastrocs
+#EXP_DATE: 2018 10 02
+#FEATURES: python;java;clr
+#LICENSEE: Pfizer, Inc.
+#SITE: Global Sites
+LICENSE_KEY: 1e6e7da673604b50b04418d15c0edfb3512fe737cf4ee73e392ec049383b3984
+#PRODUCT: filter
+#EXP_DATE: 2018 10 02
+#FEATURES: toolkit;python;java;clr
+#LICENSEE: Pfizer, Inc.
+#SITE: Global Sites
+LICENSE_KEY: 88b3b14b89ccc579fa8d4b39344a0d9773827ade8508e842b4f9d59e3b60c937
+#PRODUCT: flynn
+#EXP_DATE: 2018 10 02
+#LICENSEE: Pfizer, Inc.
+#SITE: Global Sites
+LICENSE_KEY: e991fd2fc0e20fe0f94c8e2d96b0d2c3faabadf994bf7dc096f3e4b44d34cc4e
+#PRODUCT: fred2
+#EXP_DATE: 2018 10 02
+#LICENSEE: Pfizer, Inc.
+#SITE: Global Sites
+LICENSE_KEY: c71be192ed00b438a5e8fe895ab1c595949f926423e5f93d8f108bd8e33a98da
+#PRODUCT: grapheme
+#EXP_DATE: 2018 10 02
+#FEATURES: python;java;clr
+#LICENSEE: Pfizer, Inc.
+#SITE: Global Sites
+LICENSE_KEY: e448afa701674bca4b6fabd2ee9e9e7313a4a1741b0f6877f0234d750792a8c7
+#PRODUCT: graphsim
+#EXP_DATE: 2018 10 02
+#FEATURES: python;java;clr
+#LICENSEE: Pfizer, Inc.
+#SITE: Global Sites
+LICENSE_KEY: a62879c1d4e1049a0750efad6972289bc56f974b15ba3f1de5d0cd5dcbd86ab3
+#PRODUCT: iupac
+#EXP_DATE: 2018 10 02
+#FEATURES: python;java;clr
+#LICENSEE: Pfizer, Inc.
+#SITE: Global Sites
+LICENSE_KEY: cdc2a6e6c16a1fd5f1d664dff6152a72353118a978b86b25acd03a8e1f883701
+#PRODUCT: oechem
+#EXP_DATE: 2018 10 02
+#FEATURES: python;java;clr
+#LICENSEE: Pfizer, Inc.
+#SITE: Global Sites
+LICENSE_KEY: 42aafbae5b1ae68b28463580b63c1ad088940bc6e4bec69a023fe344fbea1fe2
+#PRODUCT: oedepict
+#EXP_DATE: 2018 10 02
+#FEATURES: python;java;clr
+#LICENSEE: Pfizer, Inc.
+#SITE: Global Sites
+LICENSE_KEY: c55302b7467c0457990616e50527dad63874fb4ddf498b80e720179a18adc9b0
+#PRODUCT: oemedchem
+#EXP_DATE: 2018 10 02
+#FEATURES: python;java;clr
+#LICENSEE: Pfizer, Inc.
+#SITE: Global Sites
+LICENSE_KEY: 3fd49a3ccb0f17dd5a8a67332a624e125a6f55ad79469b7f7fc843d9439fdbf5
+#PRODUCT: omega
+#EXP_DATE: 2018 10 02
+#FEATURES: gas-phase;toolkit;python;java;clr
+#LICENSEE: Pfizer, Inc.
+#SITE: Global Sites
+LICENSE_KEY: 5939da702480cce1a9fa2e5ce2d1f1fdfb289781592827c875f088353fe0fba5
+#PRODUCT: omega-db
+#EXP_DATE: 2018 10 02
+#LICENSEE: Pfizer, Inc.
+#SITE: Global Sites
+LICENSE_KEY: 216a2e7ae6b40871866576cc573b8983a0ad68f06b7d84d1d452e23d62157041
+#PRODUCT: pkadata
+#EXP_DATE: 2018 10 02
+#LICENSEE: Pfizer, Inc.
+#SITE: Global Sites
+LICENSE_KEY: 61d74c8e40198ef20300470728d5def76a0c9fcbe1b7a651afac3dfe326da63f
+#PRODUCT: posit
+#EXP_DATE: 2018 10 02
+#LICENSEE: Pfizer, Inc.
+#SITE: Global Sites
+LICENSE_KEY: de3af0f942bb13a49e4d56e43057b0b5aed9ecee9a948b5076cc255145141eac
+#PRODUCT: quacpac
+#EXP_DATE: 2018 10 02
+#FEATURES: beta;python;java;clr
+#LICENSEE: Pfizer, Inc.
+#SITE: Global Sites
+LICENSE_KEY: 4bf3c5ec44a34b8cde34932d3a676430b219c34bd0cd922a27a4b9f348b12c9b
+#PRODUCT: rocs
+#EXP_DATE: 2018 10 02
+#LICENSEE: Pfizer, Inc.
+#SITE: Global Sites
+LICENSE_KEY: b614fe27f12574a520e22b83444b4c571c0cefb43a5f30723c0914bd42cdaa2f
+#PRODUCT: shape
+#EXP_DATE: 2018 10 02
+#FEATURES: molecules;grids;python;java;clr
+#LICENSEE: Pfizer, Inc.
+#SITE: Global Sites
+LICENSE_KEY: 4987715a050a0cb6338cbd4ed3021db67e764fa2794a8a6df04d306789714bcc
+#PRODUCT: spicoli
+#EXP_DATE: 2018 10 02
+#FEATURES: python;java;clr
+#LICENSEE: Pfizer, Inc.
+#SITE: Global Sites
+LICENSE_KEY: 4966ac76c85431d7982fe1f1403187789070b477f8d538e063ee35df67c678ef
+#PRODUCT: szmap
+#EXP_DATE: 2018 10 02
+#LICENSEE: Pfizer, Inc.
+#SITE: Global Sites
+LICENSE_KEY: f16e96bc0e5cf353d6d1c7e63002513bd143a6074b68c490db199caf979aa3da
+#PRODUCT: szmaptk
+#EXP_DATE: 2018 10 02
+#FEATURES: python;java;clr
+#LICENSEE: Pfizer, Inc.
+#SITE: Global Sites
+LICENSE_KEY: 83384af5b415040873ad999985eed7503f446db5b808c9635c3f953b0127f20b
+#PRODUCT: szybki
+#EXP_DATE: 2018 10 02
+#FEATURES: python;java;clr
+#LICENSEE: Pfizer, Inc.
+#SITE: Global Sites
+LICENSE_KEY: 7e9aa795cf12dfe13e522340a8353599343d9d746bede23b9761253dca08c41b
+#PRODUCT: case
+#EXP_DATE: 2018 10 02
+#FEATURES: python;java;clr
+#LICENSEE: Pfizer, Inc.
+#SITE: Global Sites
+LICENSE_KEY: d11043f696a64ecd05403515fcbe2c98ba65b46f985b84a6b1885e0994639826
+#PRODUCT: vida
+#EXP_DATE: 2018 10 02
+#FEATURES: script line
+#LICENSEE: Pfizer, Inc.
+#SITE: Global Sites
+LICENSE_KEY: f167d7df05e26dd62e0061a59768269ea7a5bf18c19e67aef944c5cbdb05466d
+#PRODUCT: vivant
+#EXP_DATE: 2018 10 02
+#LICENSEE: Pfizer, Inc.
+#SITE: Global Sites
+LICENSE_KEY: 40cb948f26853e80f53aff0aac3b6878342117d92f4e11ac6ba56592c9a58064
+#PRODUCT: zap
+#EXP_DATE: 2018 10 02
+#FEATURES: basic toolkit;protein pka;perfect charge;python;java;clr
+#LICENSEE: Pfizer, Inc.
+#SITE: Global Sites
+LICENSE_KEY: b10ca4523821180997907836936c39b54d6f7ac345c966c00960d9ece5b2e2b0
+

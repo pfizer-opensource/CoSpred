@@ -1,0 +1,39 @@
+Bootstrap: localimage
+From: /localdata0/Code/singularity/base/conda-base.simg
+
+%help
+Singularity container for cheminformatics and deep learning
+
+%files
+    env.yml /opt/environment.yml
+
+%environment
+    PATH=${PATH}:/opt/conda/envs/myenv/bin
+
+%post
+    conda update -y conda
+    conda env create -f /opt/environment.yml
+    conda clean -afy
+    . /opt/conda/etc/profile.d/conda.sh
+    conda activate myenv
+
+%runscript 
+    exec "$@"
+
+%apprun print_version
+    python --version
+
+%apphelp python_version
+    Print python version and exit
+
+%apprun python_shell
+    python
+
+%apphelp python_shell
+    Launch python shell
+
+%apprun python_script
+    python "$@"
+
+%apphelp python_script
+    Run a python script

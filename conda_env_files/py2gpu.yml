@@ -1,0 +1,30 @@
+channels:
+    - anaconda
+    - pytorch
+    - rdkit
+dependencies:
+    - cffi
+    - cmake
+    - cudatoolkit>=9
+    - h5py
+    - ipython
+    - matplotlib
+    - magma-cuda90
+    - mkl-service
+    - networkx
+    - nltk
+    - pandas
+    - python=2.7
+    - rdkit
+    - scikit-learn
+    - seaborn
+    - setuptools
+    - typing
+    - tqdm
+    - cuda90
+    - pytorch>=0.4
+    - pip
+    - pip:
+        - keras
+        - tensorflow-gpu>=1.7
+        - gpy

@@ -1,0 +1,15 @@
+# Temporary files
+*.swp
+
+# Data
+quick_tests/keras-test/MNIST_data/
+tests/pytorch-test/data
+
+# user gpu_modules
+gpu_modules/
+
+#Singularity
+singularity/.*
+*.simg
+*.sif
+*.sif.*
