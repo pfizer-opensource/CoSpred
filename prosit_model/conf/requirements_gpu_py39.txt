@@ -1,6 +1,6 @@
 ruamel.yaml
 pyyaml==5.3
-tensorflow-gpu==2.11
+tensorflow-gpu==2.12.0
 scikit-learn
 pillow
 numpy 
