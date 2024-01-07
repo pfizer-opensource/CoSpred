@@ -1,0 +1,16 @@
+{
+   "loss": [
+      "spectral_distance"
+   ],
+   "name": "prosit1.0",
+   "optimizer": "adam",
+   "prediction_type": "intensity",
+   "x": [
+      "sequence_integer",
+      "precursor_charge_onehot",
+      "collision_energy_aligned_normed"
+   ],
+   "y": [
+      "intensities_raw"
+   ]
+}
