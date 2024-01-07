@@ -6,7 +6,7 @@ pillow
 numpy 
 scipy
 keras
-flask==1.1.1
+flask==2.2.5
 pandas
 pyteomics==4.1.2
 lxml
