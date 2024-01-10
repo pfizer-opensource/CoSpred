@@ -1,0 +1,714 @@
+{
+   "class_name": "Functional",
+   "config": {
+      "name": "model_1",
+      "layers": [
+         {
+            "class_name": "InputLayer",
+            "config": {
+               "batch_input_shape": [
+                  null,
+                  30
+               ],
+               "dtype": "int32",
+               "sparse": false,
+               "ragged": false,
+               "name": "sequence_integer"
+            },
+            "name": "sequence_integer",
+            "inbound_nodes": []
+         },
+         {
+            "class_name": "Embedding",
+            "config": {
+               "name": "embedding",
+               "trainable": true,
+               "dtype": "float32",
+               "batch_input_shape": [
+                  null,
+                  null
+               ],
+               "input_dim": 34,
+               "output_dim": 32,
+               "embeddings_initializer": {
+                  "class_name": "RandomUniform",
+                  "config": {
+                     "minval": -0.05,
+                     "maxval": 0.05,
+                     "seed": null
+                  }
+               },
+               "embeddings_regularizer": null,
+               "activity_regularizer": null,
+               "embeddings_constraint": null,
+               "mask_zero": false,
+               "input_length": null
+            },
+            "name": "embedding",
+            "inbound_nodes": [
+               [
+                  [
+                     "sequence_integer",
+                     0,
+                     0,
+                     {}
+                  ]
+               ]
+            ]
+         },
+         {
+            "class_name": "Bidirectional",
+            "config": {
+               "name": "encoder1",
+               "trainable": true,
+               "dtype": "float32",
+               "layer": {
+                  "class_name": "GRU",
+                  "config": {
+                     "name": "encoder1_gru",
+                     "trainable": true,
+                     "dtype": "float32",
+                     "return_sequences": true,
+                     "return_state": false,
+                     "go_backwards": false,
+                     "stateful": false,
+                     "unroll": false,
+                     "time_major": false,
+                     "units": 512,
+                     "activation": "tanh",
+                     "recurrent_activation": "sigmoid",
+                     "use_bias": true,
+                     "kernel_initializer": {
+                        "class_name": "GlorotUniform",
+                        "config": {
+                           "seed": null
+                        },
+                        "shared_object_id": 3
+                     },
+                     "recurrent_initializer": {
+                        "class_name": "Orthogonal",
+                        "config": {
+                           "gain": 1.0,
+                           "seed": null
+                        },
+                        "shared_object_id": 4
+                     },
+                     "bias_initializer": {
+                        "class_name": "Zeros",
+                        "config": {},
+                        "shared_object_id": 5
+                     },
+                     "kernel_regularizer": null,
+                     "recurrent_regularizer": null,
+                     "bias_regularizer": null,
+                     "activity_regularizer": null,
+                     "kernel_constraint": null,
+                     "recurrent_constraint": null,
+                     "bias_constraint": null,
+                     "dropout": 0.0,
+                     "recurrent_dropout": 0.0,
+                     "implementation": 2,
+                     "reset_after": true
+                  }
+               },
+               "merge_mode": "concat"
+            },
+            "name": "encoder1",
+            "inbound_nodes": [
+               [
+                  [
+                     "embedding",
+                     0,
+                     0,
+                     {}
+                  ]
+               ]
+            ]
+         },
+         {
+            "class_name": "Dropout",
+            "config": {
+               "name": "dropout_1",
+               "trainable": true,
+               "dtype": "float32",
+               "rate": 0.3,
+               "noise_shape": null,
+               "seed": null
+            },
+            "name": "dropout_1",
+            "inbound_nodes": [
+               [
+                  [
+                     "encoder1",
+                     0,
+                     0,
+                     {}
+                  ]
+               ]
+            ]
+         },
+         {
+            "class_name": "InputLayer",
+            "config": {
+               "batch_input_shape": [
+                  null,
+                  1
+               ],
+               "dtype": "float32",
+               "sparse": false,
+               "ragged": false,
+               "name": "collision_energy_aligned_normed"
+            },
+            "name": "collision_energy_aligned_normed",
+            "inbound_nodes": []
+         },
+         {
+            "class_name": "InputLayer",
+            "config": {
+               "batch_input_shape": [
+                  null,
+                  6
+               ],
+               "dtype": "float32",
+               "sparse": false,
+               "ragged": false,
+               "name": "precursor_charge_onehot"
+            },
+            "name": "precursor_charge_onehot",
+            "inbound_nodes": []
+         },
+         {
+            "class_name": "GRU",
+            "config": {
+               "name": "encoder2",
+               "trainable": true,
+               "dtype": "float32",
+               "return_sequences": true,
+               "return_state": false,
+               "go_backwards": false,
+               "stateful": false,
+               "unroll": false,
+               "time_major": false,
+               "units": 512,
+               "activation": "tanh",
+               "recurrent_activation": "sigmoid",
+               "use_bias": true,
+               "kernel_initializer": {
+                  "class_name": "GlorotUniform",
+                  "config": {
+                     "seed": null
+                  },
+                  "shared_object_id": 12
+               },
+               "recurrent_initializer": {
+                  "class_name": "Orthogonal",
+                  "config": {
+                     "gain": 1.0,
+                     "seed": null
+                  },
+                  "shared_object_id": 13
+               },
+               "bias_initializer": {
+                  "class_name": "Zeros",
+                  "config": {},
+                  "shared_object_id": 14
+               },
+               "kernel_regularizer": null,
+               "recurrent_regularizer": null,
+               "bias_regularizer": null,
+               "activity_regularizer": null,
+               "kernel_constraint": null,
+               "recurrent_constraint": null,
+               "bias_constraint": null,
+               "dropout": 0.0,
+               "recurrent_dropout": 0.0,
+               "implementation": 2,
+               "reset_after": true
+            },
+            "name": "encoder2",
+            "inbound_nodes": [
+               [
+                  [
+                     "dropout_1",
+                     0,
+                     0,
+                     {}
+                  ]
+               ]
+            ]
+         },
+         {
+            "class_name": "Concatenate",
+            "config": {
+               "name": "meta_in",
+               "trainable": true,
+               "dtype": "float32",
+               "axis": -1
+            },
+            "name": "meta_in",
+            "inbound_nodes": [
+               [
+                  [
+                     "collision_energy_aligned_normed",
+                     0,
+                     0,
+                     {}
+                  ],
+                  [
+                     "precursor_charge_onehot",
+                     0,
+                     0,
+                     {}
+                  ]
+               ]
+            ]
+         },
+         {
+            "class_name": "Dropout",
+            "config": {
+               "name": "dropout_2",
+               "trainable": true,
+               "dtype": "float32",
+               "rate": 0.3,
+               "noise_shape": null,
+               "seed": null
+            },
+            "name": "dropout_2",
+            "inbound_nodes": [
+               [
+                  [
+                     "encoder2",
+                     0,
+                     0,
+                     {}
+                  ]
+               ]
+            ]
+         },
+         {
+            "class_name": "Dense",
+            "config": {
+               "name": "meta_dense",
+               "trainable": true,
+               "dtype": "float32",
+               "units": 512,
+               "activation": "linear",
+               "use_bias": true,
+               "kernel_initializer": {
+                  "class_name": "GlorotUniform",
+                  "config": {
+                     "seed": null
+                  }
+               },
+               "bias_initializer": {
+                  "class_name": "Zeros",
+                  "config": {}
+               },
+               "kernel_regularizer": null,
+               "bias_regularizer": null,
+               "activity_regularizer": null,
+               "kernel_constraint": null,
+               "bias_constraint": null
+            },
+            "name": "meta_dense",
+            "inbound_nodes": [
+               [
+                  [
+                     "meta_in",
+                     0,
+                     0,
+                     {}
+                  ]
+               ]
+            ]
+         },
+         {
+            "class_name": "CustomAttention",
+            "config": {
+               "name": "encoder_att",
+               "trainable": true,
+               "dtype": "float32"
+            },
+            "name": "encoder_att",
+            "inbound_nodes": [
+               [
+                  [
+                     "dropout_2",
+                     0,
+                     0,
+                     {}
+                  ]
+               ]
+            ]
+         },
+         {
+            "class_name": "Dropout",
+            "config": {
+               "name": "meta_dense_do",
+               "trainable": true,
+               "dtype": "float32",
+               "rate": 0.3,
+               "noise_shape": null,
+               "seed": null
+            },
+            "name": "meta_dense_do",
+            "inbound_nodes": [
+               [
+                  [
+                     "meta_dense",
+                     0,
+                     0,
+                     {}
+                  ]
+               ]
+            ]
+         },
+         {
+            "class_name": "Multiply",
+            "config": {
+               "name": "add_meta",
+               "trainable": true,
+               "dtype": "float32"
+            },
+            "name": "add_meta",
+            "inbound_nodes": [
+               [
+                  [
+                     "encoder_att",
+                     0,
+                     0,
+                     {}
+                  ],
+                  [
+                     "meta_dense_do",
+                     0,
+                     0,
+                     {}
+                  ]
+               ]
+            ]
+         },
+         {
+            "class_name": "RepeatVector",
+            "config": {
+               "name": "repeat",
+               "trainable": true,
+               "dtype": "float32",
+               "n": 100
+            },
+            "name": "repeat",
+            "inbound_nodes": [
+               [
+                  [
+                     "add_meta",
+                     0,
+                     0,
+                     {}
+                  ]
+               ]
+            ]
+         },
+         {
+            "class_name": "GRU",
+            "config": {
+               "name": "decoder",
+               "trainable": true,
+               "dtype": "float32",
+               "return_sequences": true,
+               "return_state": false,
+               "go_backwards": false,
+               "stateful": false,
+               "unroll": false,
+               "time_major": false,
+               "units": 512,
+               "activation": "tanh",
+               "recurrent_activation": "sigmoid",
+               "use_bias": true,
+               "kernel_initializer": {
+                  "class_name": "GlorotUniform",
+                  "config": {
+                     "seed": null
+                  },
+                  "shared_object_id": 26
+               },
+               "recurrent_initializer": {
+                  "class_name": "Orthogonal",
+                  "config": {
+                     "gain": 1.0,
+                     "seed": null
+                  },
+                  "shared_object_id": 27
+               },
+               "bias_initializer": {
+                  "class_name": "Zeros",
+                  "config": {},
+                  "shared_object_id": 28
+               },
+               "kernel_regularizer": null,
+               "recurrent_regularizer": null,
+               "bias_regularizer": null,
+               "activity_regularizer": null,
+               "kernel_constraint": null,
+               "recurrent_constraint": null,
+               "bias_constraint": null,
+               "dropout": 0.0,
+               "recurrent_dropout": 0.0,
+               "implementation": 2,
+               "reset_after": true
+            },
+            "name": "decoder",
+            "inbound_nodes": [
+               [
+                  [
+                     "repeat",
+                     0,
+                     0,
+                     {}
+                  ]
+               ]
+            ]
+         },
+         {
+            "class_name": "Dropout",
+            "config": {
+               "name": "dropout_3",
+               "trainable": true,
+               "dtype": "float32",
+               "rate": 0.3,
+               "noise_shape": null,
+               "seed": null
+            },
+            "name": "dropout_3",
+            "inbound_nodes": [
+               [
+                  [
+                     "decoder",
+                     0,
+                     0,
+                     {}
+                  ]
+               ]
+            ]
+         },
+         {
+            "class_name": "Permute",
+            "config": {
+               "name": "permute_1",
+               "trainable": true,
+               "dtype": "float32",
+               "dims": [
+                  2,
+                  1
+               ]
+            },
+            "name": "permute_1",
+            "inbound_nodes": [
+               [
+                  [
+                     "dropout_3",
+                     0,
+                     0,
+                     {}
+                  ]
+               ]
+            ]
+         },
+         {
+            "class_name": "Dense",
+            "config": {
+               "name": "dense_1",
+               "trainable": true,
+               "dtype": "float32",
+               "units": 100,
+               "activation": "softmax",
+               "use_bias": true,
+               "kernel_initializer": {
+                  "class_name": "GlorotUniform",
+                  "config": {
+                     "seed": null
+                  }
+               },
+               "bias_initializer": {
+                  "class_name": "Zeros",
+                  "config": {}
+               },
+               "kernel_regularizer": null,
+               "bias_regularizer": null,
+               "activity_regularizer": null,
+               "kernel_constraint": null,
+               "bias_constraint": null
+            },
+            "name": "dense_1",
+            "inbound_nodes": [
+               [
+                  [
+                     "permute_1",
+                     0,
+                     0,
+                     {}
+                  ]
+               ]
+            ]
+         },
+         {
+            "class_name": "Permute",
+            "config": {
+               "name": "permute_2",
+               "trainable": true,
+               "dtype": "float32",
+               "dims": [
+                  2,
+                  1
+               ]
+            },
+            "name": "permute_2",
+            "inbound_nodes": [
+               [
+                  [
+                     "dense_1",
+                     0,
+                     0,
+                     {}
+                  ]
+               ]
+            ]
+         },
+         {
+            "class_name": "Multiply",
+            "config": {
+               "name": "multiply_1",
+               "trainable": true,
+               "dtype": "float32"
+            },
+            "name": "multiply_1",
+            "inbound_nodes": [
+               [
+                  [
+                     "dropout_3",
+                     0,
+                     0,
+                     {}
+                  ],
+                  [
+                     "permute_2",
+                     0,
+                     0,
+                     {}
+                  ]
+               ]
+            ]
+         },
+         {
+            "class_name": "TimeDistributed",
+            "config": {
+               "name": "timedense",
+               "trainable": true,
+               "dtype": "float32",
+               "layer": {
+                  "class_name": "Dense",
+                  "config": {
+                     "name": "dense_2",
+                     "trainable": true,
+                     "dtype": "float32",
+                     "units": 30,
+                     "activation": "linear",
+                     "use_bias": true,
+                     "kernel_initializer": {
+                        "class_name": "GlorotUniform",
+                        "config": {
+                           "seed": null
+                        }
+                     },
+                     "bias_initializer": {
+                        "class_name": "Zeros",
+                        "config": {}
+                     },
+                     "kernel_regularizer": null,
+                     "bias_regularizer": null,
+                     "activity_regularizer": null,
+                     "kernel_constraint": null,
+                     "bias_constraint": null
+                  }
+               }
+            },
+            "name": "timedense",
+            "inbound_nodes": [
+               [
+                  [
+                     "multiply_1",
+                     0,
+                     0,
+                     {}
+                  ]
+               ]
+            ]
+         },
+         {
+            "class_name": "LeakyReLU",
+            "config": {
+               "name": "activation",
+               "trainable": true,
+               "dtype": "float32",
+               "alpha": 0.30000001192092896
+            },
+            "name": "activation",
+            "inbound_nodes": [
+               [
+                  [
+                     "timedense",
+                     0,
+                     0,
+                     {}
+                  ]
+               ]
+            ]
+         },
+         {
+            "class_name": "Flatten",
+            "config": {
+               "name": "intensities_raw",
+               "trainable": true,
+               "dtype": "float32",
+               "data_format": "channels_last"
+            },
+            "name": "intensities_raw",
+            "inbound_nodes": [
+               [
+                  [
+                     "activation",
+                     0,
+                     0,
+                     {}
+                  ]
+               ]
+            ]
+         }
+      ],
+      "input_layers": [
+         [
+            "sequence_integer",
+            0,
+            0
+         ],
+         [
+            "precursor_charge_onehot",
+            0,
+            0
+         ],
+         [
+            "collision_energy_aligned_normed",
+            0,
+            0
+         ]
+      ],
+      "output_layers": [
+         [
+            "intensities_raw",
+            0,
+            0
+         ]
+      ]
+   },
+   "keras_version": "2.11.0",
+   "backend": "tensorflow"
+}
