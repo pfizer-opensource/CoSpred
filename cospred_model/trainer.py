@@ -3,15 +3,12 @@ Simple training loop; Boilerplate that could apply to any arbitrary neural netwo
 so nothing in this file really has anything to do with GPT specifically.
 """
 
-import math
 import logging
 import wandb
 import os
 from tqdm import tqdm
 import numpy as np
 import torch
-import torch.optim as optim
-from torch.optim.lr_scheduler import LambdaLR
 from torch.utils.data.dataloader import DataLoader
 
 from cospred_model import metrics as cospred_metrics
@@ -30,7 +27,8 @@ class TrainerConfig:
     weight_decay = 0.1  # only applied on matmul weights
     # learning rate decay params: linear warmup followed by cosine decay to 10% of original
     lr_decay = False
-    warmup_tokens = 375e6  # these two numbers come from the GPT-3 paper, but may not be good defaults elsewhere
+    # these two numbers come from the GPT-3 paper, but may not be good defaults elsewhere
+    warmup_tokens = 375e6
     final_tokens = 260e9  # (at what point we reach 10% of original LR)
     # checkpoint settings
     ckpt_path = None
@@ -68,12 +66,14 @@ class Trainer:
         if self.current_best_checkpoint:
             os.remove(self.current_best_checkpoint)
 
-        raw_model = self.model.module if hasattr(self.model, "module") else self.model
+        raw_model = self.model.module if hasattr(
+            self.model, "module") else self.model
         current_best_checkpoint = os.path.join(self.config.ckpt_path,
                                                self.config.model_name +
-                                               '_epoch' + str("{:03d}".format(self.epoch)) + 
+                                               '_epoch' + str("{:03d}".format(self.epoch)) +
                                                '_loss' + str(round(self.best_loss, 5)) + '.pt')
-        print('Saving checkpoint after epoch', self.epoch, current_best_checkpoint)
+        print('Saving checkpoint after epoch',
+              self.epoch, current_best_checkpoint)
         self.current_best_checkpoint = current_best_checkpoint
         torch.save(raw_model.state_dict(), self.current_best_checkpoint)
         # raw_model = self.model.module if hasattr(self.model, "module") else self.model
@@ -91,24 +91,25 @@ class Trainer:
             model.train(is_train)
             data = self.train_dataset if is_train else self.test_dataset
             dataloader = DataLoader(data, shuffle=True, pin_memory=True,
-                                batch_size=config.batch_size,
-                                # batch_size=3,
-                                num_workers=config.num_workers)
+                                    batch_size=config.batch_size,
+                                    # batch_size=3,
+                                    num_workers=config.num_workers)
             losses = []
-            
+
             # # DEBUG
             # tmp = next(iter(dataloader))
             # tmp.keys()
             # #
-            
-            pbar = tqdm(enumerate(dataloader), total=len(dataloader)) if is_train else enumerate(dataloader)
+
+            pbar = tqdm(enumerate(dataloader), total=len(dataloader)
+                        ) if is_train else enumerate(dataloader)
             # for it, (x, x_precursor, x_ce, y) in pbar:        # Fragile since depending on the column order
-                # for it, (x, y) in pbar:
+            # for it, (x, y) in pbar:
             for it, batch in pbar:
-                # print(batch) 
+                # print(batch)
                 # place data on the correct device
                 x_tr = torch.cat((batch['sequence_integer'],
-                                  batch['precursor_charge_onehot'], 
+                                  batch['precursor_charge_onehot'],
                                   batch['collision_energy_aligned_normed']), dim=1)
                 # x_tr = torch.cat((x_precursor[:,None], x), dim=1)
                 # print("size of input", x_tr.shape)
@@ -116,22 +117,23 @@ class Trainer:
                 # x_precursor.to(self.device)
                 y = batch['intensities_raw']
                 y = y.to(self.device)
-                #print("yshape")
+                # print("yshape")
                 # print(y.shape)
                 # forward the model
                 with torch.set_grad_enabled(is_train):
                     logits, loss = model(x_tr, y)
-                    n_logits=logits.shape
+                    # n_logits = logits.shape
                     # print("predicted output")
                     # print(n_logits)
                     loss = loss.mean()  # collapse all losses if they are scattered on multiple gpus
-                    #print(loss)
+                    # print(loss)
                     losses.append(loss.item())
                 # y_true= y.detach().cpu().squeeze(0).numpy()
                 # y_pred= logits.detach().cpu().squeeze(0).numpy()
                 y_true = y
                 y_pred = logits
-                metrics = cospred_metrics.ComputeMetrics(true=y_true, pred=y_pred).return_metrics_mean()
+                metrics = cospred_metrics.ComputeMetrics(
+                    true=y_true, pred=y_pred).return_metrics_mean()
                 # print(metrics['recall'])
 
                 if is_train:
@@ -145,7 +147,8 @@ class Trainer:
                     # backprop and update the parameters
                     model.zero_grad()
                     loss.backward()
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), config.grad_norm_clip)
+                    torch.nn.utils.clip_grad_norm_(
+                        model.parameters(), config.grad_norm_clip)
                     optimizer.step()
 
                     # # decay the learning rate based on our progress
@@ -165,7 +168,8 @@ class Trainer:
                     lr = config.learning_rate
 
                     # report progress
-                    pbar.set_description(f"epoch {epoch + 1} iter {it}: train loss {loss.item():.5f}. lr {lr:e}")
+                    pbar.set_description(
+                        f"epoch {epoch + 1} iter {it}: train loss {loss.item():.5f}. lr {lr:e}")
                     wandb.log({"Epoch": epoch, "Train Loss": loss.item()})
                     # , "Train Acc": acc_train, "Valid Loss": loss_valid, "Valid Acc": acc_valid})
             if not is_train:
@@ -184,7 +188,7 @@ class Trainer:
                 test_loss = run_epoch('test')
 
             # supports early stopping based on the test loss, or just save always if no test set is provided
-            #good_model = self.test_dataset is None or test_loss < best_loss
+            # good_model = self.test_dataset is None or test_loss < best_loss
             improved = test_loss < best_loss
             if self.config.ckpt_path is not None and improved:
                 self.epochs_with_no_improvement = 0
@@ -194,6 +198,6 @@ class Trainer:
             elif self.test_dataset is not None and not improved:
                 self.epochs_with_no_improvement += 1
             if self.epochs_with_no_improvement >= self.config.patience:
-                print(f'Performance did not improve after {self.epochs_with_no_improvement} epochs')
+                print(
+                    f'Performance did not improve after {self.epochs_with_no_improvement} epochs')
                 break
-    

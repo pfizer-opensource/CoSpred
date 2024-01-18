@@ -11,10 +11,10 @@ MGF_PATH = DATA_DIR + FILE_NAME + ".mgf"
 MZML_PATH = DATA_DIR + FILE_NAME + ".mzML"
 
 REFORMAT_USITITLE_PATH = DATA_DIR + FILE_NAME + ".mgf"
-REFORMAT_TRAIN_USITITLE_PATH = DATA_DIR  + "train_usi.mgf"
-REFORMAT_TEST_USITITLE_PATH = DATA_DIR  + "test_usi.mgf"
-REFORMAT_TRAIN_PATH = DATA_DIR  + "train_reformatted.mgf"
-REFORMAT_TEST_PATH = DATA_DIR  + "test_reformatted.mgf"
+REFORMAT_TRAIN_USITITLE_PATH = DATA_DIR + "train_usi.mgf"
+REFORMAT_TEST_USITITLE_PATH = DATA_DIR + "test_usi.mgf"
+REFORMAT_TRAIN_PATH = DATA_DIR + "train_reformatted.mgf"
+REFORMAT_TEST_PATH = DATA_DIR + "test_reformatted.mgf"
 TRAINCSV_PATH = DATA_DIR + "peptidelist_train.csv"
 TESTCSV_PATH = DATA_DIR + "peptidelist_test.csv"
 TESTPEPTIDES_PATH = DATA_DIR + "test_peptides.csv"
@@ -39,4 +39,3 @@ PREDICT_INPUT = TESTCSV_PATH
 REFERENCE_SPECTRA = REFORMAT_TEST_PATH
 PREDICT_DIR = BASE_PATH + "prediction/"
 PLOT_DIR = PREDICT_DIR + "plot/"
-

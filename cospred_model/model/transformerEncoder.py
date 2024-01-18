@@ -3,8 +3,9 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
-from cospred_model.metrics import spectral_distance, masked_spectral_distance
+from cospred_model.metrics import spectral_distance
 import params.constants as constants
+
 
 class TransformerConfig:
     """ base GPT config, params common to all GPT versions """
@@ -47,9 +48,12 @@ class SelfAttention(nn.Module):
         B, T, C = x.size()
 
         # calculate query, key, values for all heads in batch and move head forward to be the batch dim
-        k = self.key(x).view(B, T, self.n_head, C // self.n_head).transpose(1, 2)  # (B, nh, T, hs)
-        q = self.query(x).view(B, T, self.n_head, C // self.n_head).transpose(1, 2)  # (B, nh, T, hs)
-        v = self.value(x).view(B, T, self.n_head, C // self.n_head).transpose(1, 2)  # (B, nh, T, hs)
+        k = self.key(x).view(B, T, self.n_head, C //
+                             self.n_head).transpose(1, 2)  # (B, nh, T, hs)
+        q = self.query(x).view(B, T, self.n_head, C //
+                               self.n_head).transpose(1, 2)  # (B, nh, T, hs)
+        v = self.value(x).view(B, T, self.n_head, C //
+                               self.n_head).transpose(1, 2)  # (B, nh, T, hs)
 
         # causal self-attention; Self-attend: (B, nh, T, hs) x (B, nh, hs, T) -> (B, nh, T, T)
         att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
@@ -57,7 +61,8 @@ class SelfAttention(nn.Module):
         att = F.softmax(att, dim=-1)
         att = self.attn_drop(att)
         y = att @ v  # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
-        y = y.transpose(1, 2).contiguous().view(B, T, C)  # re-assemble all head outputs side by side
+        # re-assemble all head outputs side by side
+        y = y.transpose(1, 2).contiguous().view(B, T, C)
 
         # output projection
         y = self.resid_drop(self.proj(y))
@@ -97,10 +102,12 @@ class TransformerEncoder(nn.Module):
         self.ce_emb = nn.Embedding(config.max_ce, config.n_embd)
         # print(config.vocab_size, config.n_embd)
         # print(config.max_charge, config.max_ce)
-        self.pos_emb = nn.Parameter(torch.zeros(1, config.block_size, config.n_embd))
+        self.pos_emb = nn.Parameter(torch.zeros(
+            1, config.block_size, config.n_embd))
         self.drop = nn.Dropout(config.embd_pdrop)
         # transformer
-        self.blocks = nn.Sequential(*[Block(config) for _ in range(config.n_layer)])
+        self.blocks = nn.Sequential(*[Block(config)
+                                    for _ in range(config.n_layer)])
         # decoder head
         self.ln_f = nn.LayerNorm(config.n_embd)
         self.head = nn.Linear(config.n_embd, config.n_output, bias=False)
@@ -154,15 +161,18 @@ class TransformerEncoder(nn.Module):
         param_dict = {pn: p for pn, p in self.named_parameters()}
         inter_params = decay & no_decay
         union_params = decay | no_decay
-        assert len(inter_params) == 0, "parameters %s made it into both decay/no_decay sets!" % (str(inter_params),)
+        assert len(
+            inter_params) == 0, "parameters %s made it into both decay/no_decay sets!" % (str(inter_params),)
         assert len(
             param_dict.keys() - union_params) == 0, "parameters %s were not separated into either decay/no_decay set!" \
                                                     % (str(param_dict.keys() - union_params),)
 
         # create the pytorch optimizer object
         optim_groups = [
-            {"params": [param_dict[pn] for pn in sorted(list(decay))], "weight_decay": train_config.weight_decay},
-            {"params": [param_dict[pn] for pn in sorted(list(no_decay))], "weight_decay": 0.0},
+            {"params": [param_dict[pn] for pn in sorted(
+                list(decay))], "weight_decay": train_config.weight_decay},
+            {"params": [param_dict[pn]
+                        for pn in sorted(list(no_decay))], "weight_decay": 0.0},
         ]
         optimizer = torch.optim.AdamW(optim_groups, lr=train_config.learning_rate,
                                       betas=train_config.betas)
@@ -174,16 +184,21 @@ class TransformerEncoder(nn.Module):
         assert t <= self.block_size, "Cannot forward, model block size is exhausted."
 
         # forward the Encoder model
-        token_embeddings = self.tok_emb(idx[:, range(constants.MAX_SEQUENCE)])  # each index maps to a (learnable) vector
-        charge_embeddings = self.charge_emb(idx[:, range(constants.MAX_SEQUENCE,constants.MAX_SEQUENCE+constants.DEFAULT_MAX_CHARGE)])
-        ce_embeddings = self.ce_emb(idx[:, [constants.MAX_SEQUENCE+constants.DEFAULT_MAX_CHARGE]])
+        # each index maps to a (learnable) vector
+        token_embeddings = self.tok_emb(idx[:, range(constants.MAX_SEQUENCE)])
+        charge_embeddings = self.charge_emb(idx[:, range(
+            constants.MAX_SEQUENCE, constants.MAX_SEQUENCE+constants.DEFAULT_MAX_CHARGE)])
+        ce_embeddings = self.ce_emb(
+            idx[:, [constants.MAX_SEQUENCE+constants.DEFAULT_MAX_CHARGE]])
 
         # token_embeddings = self.tok_emb(idx[:, 1:])  # each index maps to a (learnable) vector
         # charge_embeddings = self.charge_emb(idx[:, [0]])
-        token_embeddings = torch.cat([charge_embeddings, token_embeddings, ce_embeddings], dim=1)
+        token_embeddings = torch.cat(
+            [charge_embeddings, token_embeddings, ce_embeddings], dim=1)
         # print(token_embeddings.shape)
 
-        position_embeddings = self.pos_emb[:, :t, :]  # each position maps to a (learnable) vector
+        # each position maps to a (learnable) vector
+        position_embeddings = self.pos_emb[:, :t, :]
         x = self.drop(token_embeddings + position_embeddings)
         x = self.blocks(x)
         x = self.ln_f(x)
@@ -202,6 +217,3 @@ class TransformerEncoder(nn.Module):
             # loss = F.mse_loss(outputs, targets)
             # print(loss)
         return outputs, loss
-    
-    
-    

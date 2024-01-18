@@ -31,7 +31,7 @@ def peptide_parser(p):
     i = 0
     while i < n:
         if i < n - 3 and p[i + 1] == "(":
-            j = p[i + 2 :].index(")")
+            j = p[i + 2:].index(")")
             offset = i + j + 3
             yield p[i:offset]
             i = offset

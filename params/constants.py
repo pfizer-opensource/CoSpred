@@ -11,7 +11,8 @@ TOLERANCE_FTMS = 25
 TOLERANCE_ITMS = 0.35
 TOLERANCE_TRIPLETOF = 0.5
 
-TOLERANCE = {"FTMS": (25, "ppm"), "ITMS": (0.35, "da"), "TripleTOF": (50, "ppm")}
+TOLERANCE = {"FTMS": (25, "ppm"), "ITMS": (
+    0.35, "da"), "TripleTOF": (50, "ppm")}
 
 BIN_MAXMZ = 1500
 BIN_SIZE = 0.5
@@ -69,14 +70,14 @@ MODIFICATION = {
 }
 
 FIXMOD_PROFORMA = {
-    'C\\+57.021':'C'
+    'C\\+57.021': 'C'
 }
 VARMOD_PROFORMA = {
-    'S\\+79.966':'S[Phospho]',
-    'T\\+79.966':'T[Phospho]',
-    'Y\\+79.966':'Y[Phospho]',
+    'S\\+79.966': 'S[Phospho]',
+    'T\\+79.966': 'T[Phospho]',
+    'Y\\+79.966': 'Y[Phospho]',
 }
-    
+
 AMINO_ACID = {
     "G": 57.021464,
     "R": 156.101111,
