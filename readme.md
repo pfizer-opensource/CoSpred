@@ -97,7 +97,7 @@ python training_cospred.py -f   # Training full spectrum prediction using Transf
 ```
 
 ### Inference
-Keep the best model under `model_spectra` folder. Naming will be like below,
+Keep the best model under `model_spectra` folder. Some pre-trained model could be provided upon request. Naming will be like below,
 * For B/Y ion, BiGRU model: `prosit_byion_[YYYYMMDD]_[HHMMSS]_epoch[integer]_loss[numeric].hdf5`
 * For full spectrum, BiGRU model: `prosit_full_[YYYYMMDD]_[HHMMSS]_epoch[integer]_loss[numeric].hdf5`
 * For B/Y ion, Transformer model: `transformer_byion_[YYYYMMDD]_[HHMMSS]_epoch[integer]_loss[numeric].pt`
