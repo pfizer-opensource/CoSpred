@@ -3,6 +3,7 @@
 **/__pycache__
 **/*.hdf
 **/*.pt
+**/*.zip
 **/wandb/
 **/obsolete/
 miscellaneous/

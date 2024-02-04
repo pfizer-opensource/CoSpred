@@ -16,7 +16,7 @@ import re
 #     print("Something wrong with specified directory. Exception- ", sys.exc_info())
           
 import params.constants as constants
-import params.constants_local as constants_local
+import params.constants_location as constants_location
 
 
 def from_msp_prosit(ofile):
@@ -306,8 +306,8 @@ def sampling_peptidelist(n_record, ifile, ofile):
 
 
 def main():
-    data_dir = constants_local.DATA_DIR
-    example_dir = constants_local.EXAMPLE_DIR
+    data_dir = constants_location.DATA_DIR
+    example_dir = constants_location.EXAMPLE_DIR
     if not os.path.exists(example_dir):
         os.makedirs(example_dir)
     

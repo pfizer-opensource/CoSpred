@@ -247,19 +247,21 @@ def reformatMGF(mgffile, mzmlfile, dbsearch_df, reformatmgffile, temp_dir):
     spectra_origin = mgf.read(mgffile)
     spectra_temp = []
     for spectrum in spectra_origin:
-        # for MSconvert generated MGF
-        title_split = spectrum['params']['title'].split(' ')
-        repoid = re.sub('\W$', '', title_split[1].split('"')[1])
-        scan_number = re.sub('\W+', '', title_split[0].split('.')[1])
-        spectrum['params']['title'] = ':'.join(['mzspec', 'repoID',
-                                                repoid, 'scan', scan_number])
-        spectrum['params']['scans'] = scan_number
-        # # for PD generated MGF
-        # title_split = spectrum['params']['title'].split(';')
+        # # for MSconvert generated MGF
+        # title_split = spectrum['params']['title'].split(' ')
+        # repoid = re.sub('\W$', '', title_split[1].split('"')[1])
+        # scan_number = re.sub('\W+', '', title_split[0].split('.')[1])
+        # for PD generated MGF
+        title_split = spectrum['params']['title'].split(';')
+        repoid = re.sub("\W$",'',title_split[0].split('\\')[-1])
+        scan_number = re.sub('\W+','',title_split[-1].split('scans')[-1])
         # spectrum['params']['title'] = ':'.join(['mzspec', 'repoID',
         #                   re.sub("\W$",'',title_split[0].split('\\')[-1]),
         #                   'scan',
-        #                   re.sub('\W+','',title_split[-1].split('scans')[-1])])
+        #                   re.sub('\W+','',title_split[-1].split('scans')[-1])])        
+        spectrum['params']['title'] = ':'.join(['mzspec', 'repoID',
+                                                repoid, 'scan', scan_number])
+        spectrum['params']['scans'] = scan_number
         spectra_temp.append(spectrum)
     reformatmgffile_temp = temp_dir+time.strftime("%Y%m%d%H%M%S")+'.mgf'
     mgf.write(spectra_temp, output=reformatmgffile_temp)
