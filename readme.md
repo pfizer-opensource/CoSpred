@@ -50,7 +50,7 @@ Msconvert can be run using GUI version of the software on windows computer or ca
 * OPTION 1: The MGF file doesn't contain sequence information
     * Split the dataset into train and test set. (About 15mins for 300k spectra)
 
-    1000 spectra will be randomly selected for test by default, which could be modified in the script. `example_train.mgf` and `example_test.mgf` will be generated from this step. `rawfile2hdf_prosit.py` is the script for this purpose. 
+    1000 spectra will be randomly selected for test by default, which could be modified in the script. `example_train.mgf` and `example_test.mgf` will be generated from this step. `rawfile2hdf_prosit.py` is the script for this purpose. (About 2 minitues for the example dataset)
 
     ```bash
     python rawfile2hdf_prosit.py -w split
@@ -65,7 +65,7 @@ Msconvert can be run using GUI version of the software on windows computer or ca
     python rawfile2hdf_prosit.py -w test
     ```
 
-    * OPTION 1.2: Pair database search result with MGF spectrum, reformat to full MSMS using bins 
+    * OPTION 1.2: Pair database search result with MGF spectrum, reformat to full MSMS using bins. (About 2 minitues for the example dataset)
 
     ```bash
     python rawfile2hdf_cospred.py -w train

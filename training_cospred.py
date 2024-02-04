@@ -256,16 +256,14 @@ def main():
 
     os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # turn off tf logging
 
-    # input file choices
-    if args.chunk is True:
-        data_path = constants_location.TRAINDATASET_PATH
-    else:
-        data_path = constants_location.TRAINDATA_PATH
+    # input file setup
+    data_path = constants_location.TRAINDATA_PATH          # input file
+    chunk_path = constants_location.TRAINDATASET_PATH     # chunk file path
     model_dir = constants_location.MODEL_DIR
     print(data_path)
 
     # load dataset
-    dataset = io_cospred.genDataset(data_path, args.chunk)
+    dataset = io_cospred.genDataset(data_path, chunk_path, args.chunk)
 
     # load model
     model, model_config, weights_path = model_lib.load(

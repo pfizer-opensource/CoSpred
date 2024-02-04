@@ -140,9 +140,9 @@ def pdfile_to_arrow(datasetdictfile, data_path):
         dset.save_to_disk(chunkfile)
 
 
-def to_arrow(dataset, data_path):
-    if not os.path.exists(data_path):
-        os.makedirs(data_path)
+def to_arrow(dataset, chunk_path):
+    if not os.path.exists(chunk_path):
+        os.makedirs(chunk_path)
 
     chunksize = constants.CHUNKSIZE
     chunk = {}
@@ -152,7 +152,7 @@ def to_arrow(dataset, data_path):
     last_idx = 0
     # iterate by chunk
     while last_idx < feature_len - 1 - chunksize:
-        chunkfile = data_path + "/chunk_{}".format(i)
+        chunkfile = chunk_path + "/chunk_{}".format(i)
         # chunking each feature
         for feature in dataset.keys():
             chunk[feature] = dataset[feature][last_idx: (last_idx+chunksize)]
@@ -163,7 +163,7 @@ def to_arrow(dataset, data_path):
         last_idx += chunksize
         i += 1
     if (last_idx < feature_len - 1):
-        chunkfile = data_path + "/chunk_{}".format(i)
+        chunkfile = chunk_path + "/chunk_{}".format(i)
         for feature in dataset.keys():
             chunk[feature] = dataset[feature][last_idx:]
         print(chunk[feature].shape)
@@ -171,14 +171,29 @@ def to_arrow(dataset, data_path):
         dset.save_to_disk(chunkfile)
 
 
-def genDataset(file_path, flag_chunk):
+def genDataset(file_path, chunk_path, flag_chunk):
     if flag_chunk is True:
         # BEST METHOD: Read arrow chunk files into dataset
+        if not os.path.exists(chunk_path):
+            os.makedirs(chunk_path)
+            
+            # read from hdf5 file
+            f = h5py.File(file_path, 'r')
+            # Assemble into a dictionary
+            dataset = dict()
+            for feature in set(list(f.keys())):
+                dataset[feature] = np.array(f[feature])
+            f.close()
+            print("Construct dictrionary DONE")
+            # chunking dataset
+            to_arrow(dataset, chunk_path)
+            print("Construct chunk files DONE")
+
         dsets = []
-        for filename in os.listdir(file_path):
+        for filename in os.listdir(chunk_path):
             print(filename)
             if (re.search('chunk_', filename) is not None):
-                chunkfile = os.path.join(file_path, filename)
+                chunkfile = os.path.join(chunk_path, filename)
                 print(chunkfile)
                 dset = load_from_disk(chunkfile)
                 dsets.append(dset)
