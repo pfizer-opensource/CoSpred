@@ -5,12 +5,12 @@ Complete MSMS spectrum prediction workflow.
 This provide workflow to prepare your own training datasets from raw files and convert them into tensors.
 These tensors are input for machine learning architecure. The architecture can be build using Tensorflow or Pytorch framework.
 
-Here we are predicting Complete MSMS spectrum as set of (Mi,Ii) where Mi is the mass of the peak and Ii is the intenisty of the peak.
+Here we are predicting full MSMS spectrum as set of (Mi,Ii) where Mi is the mass of the peak and Ii is the intenisty of the peak. For the BiGRU model, the MSMS spectrum is presented as b/y ion series discribed in original Prosit paper.
 
 Two machine learning architectures were demonstrated.
 
-* CoSpred: Predicts complete MSMS spectrum using transformer architecture  
-* Prosit: Predicts y-, b- ion intensities using BiGRU architecture 
+* Transformer: Predicts full MSMS spectrum using transformer architecture  
+* BiGRU: Predicts y-, b- ion intensities using BiGRU architecture 
 
 ## Installation
 
@@ -33,7 +33,7 @@ Or use the package manager [pip](https://pip.pypa.io/en/stable/) to install depe
 ```bash
 python model_construct.py
 ```
-* For transformer based CoSpred model setup, users could directly modify `cospred_model/model/transformerEncoder.py`, as well `train_transformer` module in `training_cospred.py`. 
+* For transformer based model setup, users could directly modify `cospred_model/model/transformerEncoder.py`, as well `train_transformer` module in `training_cospred.py`. 
 
 ### Data Preprocessing
 
@@ -50,10 +50,10 @@ Msconvert can be run using GUI version of the software on windows computer or ca
 * OPTION 1: The MGF file doesn't contain sequence information
     * Split the dataset into train and test set. (About 15mins for 300k spectra)
 
-    1000 spectra will be randomly selected for test by default, which could be modified in the script. `example_train.mgf` and `example_test.mgf` will be generated from this step. `rawfile2hdf_prosit.py` is the script for this purpose. (About 2 minitues for the example dataset)
+    5000 spectra will be randomly selected for test by default, which could be modified in the script. `example_train.mgf` and `example_test.mgf` will be generated from this step. `rawfile2hdf_prosit.py` (preparing dataset with b/y ion annotation) and `rawfile2hdf_cospred.py` (preparing dataset for full spectrum representation) are the scripts for this purpose. (About 2 minitues for the example dataset)
 
     ```bash
-    python rawfile2hdf_prosit.py -w split
+    python rawfile2hdf_cospred.py -w split
     ```
     
     * OPTION 1.1: Pair database search result with MGF spectrum, annotate B and Y ion for MSMS spectrum
@@ -85,7 +85,7 @@ At the end, a few files will be generated. `train.hdf5` and `test.hdf5` are inpu
 
 ### In-house training procedure
 
-`training_cospred.py` is the script for customized training. Workflows could be selected by arguments, including 1) `-t`: fun-tuning / continue training the existing model; 2) `-f`: opt in full MS/MS spectrum model instead of B/Y ions; 3) `-c`: chucking the input dataset (to prevent memory overflow by large dataset); 4) `-p`: opt in for BiGRU based Prosit model instead of Transformer based CoSpred.
+`training_cospred.py` is the script for customized training. Workflows could be selected by arguments, including 1) `-t`: fine-tuning / continue training the existing model; 2) `-f`: opt in full MS/MS spectrum model instead of B/Y ions; 3) `-c`: chucking the input dataset (to prevent memory overflow by large dataset); 4) `-p`: opt in for BiGRU model instead of Transformer.
 
 #### Representative training workflows
 

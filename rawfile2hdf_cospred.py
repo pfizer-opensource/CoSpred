@@ -121,7 +121,7 @@ def get_sequence_onehot(sequences):
     return array
 
 
-def splitMGF(mgffile, trainsetfile, testsetfile, n_test=1000):
+def splitMGF(mgffile, trainsetfile, testsetfile, n_test=5000):
     # fix random seed for reproducibility
     seed = 42
     np.random.seed(seed)
@@ -247,18 +247,18 @@ def reformatMGF(mgffile, mzmlfile, dbsearch_df, reformatmgffile, temp_dir):
     spectra_origin = mgf.read(mgffile)
     spectra_temp = []
     for spectrum in spectra_origin:
-        # # for MSconvert generated MGF
-        # title_split = spectrum['params']['title'].split(' ')
-        # repoid = re.sub('\W$', '', title_split[1].split('"')[1])
-        # scan_number = re.sub('\W+', '', title_split[0].split('.')[1])
-        # for PD generated MGF
-        title_split = spectrum['params']['title'].split(';')
-        repoid = re.sub("\W$",'',title_split[0].split('\\')[-1])
-        scan_number = re.sub('\W+','',title_split[-1].split('scans')[-1])
-        # spectrum['params']['title'] = ':'.join(['mzspec', 'repoID',
-        #                   re.sub("\W$",'',title_split[0].split('\\')[-1]),
-        #                   'scan',
-        #                   re.sub('\W+','',title_split[-1].split('scans')[-1])])        
+        # for MSconvert generated MGF
+        title_split = spectrum['params']['title'].split(' ')
+        repoid = re.sub('\W$', '', title_split[1].split('"')[1])
+        scan_number = re.sub('\W+', '', title_split[0].split('.')[1])
+        # # for PD generated MGF
+        # title_split = spectrum['params']['title'].split(';')
+        # repoid = re.sub("\W$",'',title_split[0].split('\\')[-1])
+        # scan_number = re.sub('\W+','',title_split[-1].split('scans')[-1])
+        # # spectrum['params']['title'] = ':'.join(['mzspec', 'repoID',
+        # #                   re.sub("\W$",'',title_split[0].split('\\')[-1]),
+        # #                   'scan',
+        # #                   re.sub('\W+','',title_split[-1].split('scans')[-1])])        
         spectrum['params']['title'] = ':'.join(['mzspec', 'repoID',
                                                 repoid, 'scan', scan_number])
         spectrum['params']['scans'] = scan_number
@@ -362,7 +362,7 @@ def modifyMGFtitle(usimgffile, reformatmgffile):
 
 
 # Contruct ML friendly spectra matrix for transformer full prediction
-def generateHDF5_transformer(usimgffile, reformatmgffile, dbsearch_df, csvfile):
+def generateHDF5_transformer(usimgffile, reformatmgffile, dbsearch_df, csvfile, contrastcsvfile):
     assert "file" in dbsearch_df.columns
     assert "scan" in dbsearch_df.columns
     assert "charge" in dbsearch_df.columns
@@ -442,6 +442,11 @@ def generateHDF5_transformer(usimgffile, reformatmgffile, dbsearch_df, csvfile):
     mzs_df.columns = mzs_df.columns.str.replace('[\r]', '')
     print('replace newline: ' + str(time.time()-start_time))
 
+    # To prevent data leaking, only keep the peptides that are not in the contrast dataset
+    if (contrastcsvfile is not None):
+        constrast_dataset = pd.read_csv(contrastcsvfile, sep=',')
+        mzs_df = mzs_df[~mzs_df['proforma'].isin(constrast_dataset['proforma'])]
+
     mzs_df.to_csv(csvfile, index=False)      # CSV discards values in large vec
     print('Write CSV: ' + str(time.time()-start_time))
     print('Generating CSV Done!')
@@ -477,10 +482,8 @@ def main():
     mgffile = constants_location.MGF_PATH
     mzmlfile = constants_location.MZML_PATH
     psmfile = constants_location.PSM_PATH
-    if (workflow == 'split'):
-        # hold out N records as testset
-        splitMGF(mgffile, trainsetfile, testsetfile, n_test=1000)
-    elif (workflow == 'train'):
+    
+    if (workflow == 'train'):
         usimgffile = constants_location.REFORMAT_TRAIN_USITITLE_PATH
         reformatmgffile = constants_location.REFORMAT_TRAIN_PATH
         hdf5file = constants_location.TRAINDATA_PATH
@@ -502,15 +505,24 @@ def main():
     dbsearch = getPSM(psmfile)
     dbsearch_df = dbsearch
 
+    if (workflow == 'split'):
+        # hold out N records as testset
+        splitMGF(mgffile, trainsetfile, testsetfile, n_test=5000)
+        print('Splitting train vs test set Done!')
     # reformat the Spectra
-    if not os.path.isfile(usimgffile):
-        reformatMGF(datasetfile, mzmlfile, dbsearch_df, usimgffile, temp_dir)
-
-    # match peptide from PSM with spectra MGF to generate CSV with full spectra bins
-    dataset = generateHDF5_transformer(usimgffile, reformatmgffile, dbsearch_df,
-                                       csvfile)
-    io_local.to_hdf5(dataset, hdf5file)
-    print('Generating HDF5 Done!')
+    elif (workflow == 'train' or workflow == 'test'):
+        if not os.path.isfile(usimgffile):
+            reformatMGF(datasetfile, mzmlfile, dbsearch_df, usimgffile, temp_dir)
+        # match peptide from PSM with spectra MGF to generate CSV with full spectra bins
+        if not os.path.isfile(reformatmgffile):
+            if (workflow == 'train'):
+                dataset = generateHDF5_transformer(usimgffile, reformatmgffile, dbsearch_df,
+                                                csvfile, None)
+            elif (workflow == 'test'):
+                dataset = generateHDF5_transformer(usimgffile, reformatmgffile, dbsearch_df,
+                                                csvfile, traincsvfile)
+        io_local.to_hdf5(dataset, hdf5file)
+        print('Generating HDF5 Done!')
 
 
 if __name__ == "__main__":

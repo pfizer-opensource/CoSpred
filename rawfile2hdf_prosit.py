@@ -198,7 +198,7 @@ def mask_outofcharge(array, charges, mask=-1.0):
     return array
 
 
-def splitMGF(mgffile, trainsetfile, testsetfile, n_test=1000):
+def splitMGF(mgffile, trainsetfile, testsetfile, n_test=5000):
     # fix random seed for reproducibility
     seed = 42
     np.random.seed(seed)
@@ -339,18 +339,18 @@ def reformatMGF(mgffile, mzmlfile, dbsearch_df, reformatmgffile, temp_dir):
     spectra_origin = mgf.read(mgffile)
     spectra_temp = []
     for spectrum in spectra_origin:
-        # # for MSconvert generated MGF
-        # title_split = spectrum['params']['title'].split(' ')
-        # repoid = re.sub('\W$', '', title_split[1].split('"')[1])
-        # scan_number = re.sub('\W+', '', title_split[0].split('.')[1])
-        # for PD generated MGF
-        title_split = spectrum['params']['title'].split(';')
-        repoid = re.sub("\W$",'',title_split[0].split('\\')[-1])
-        scan_number = re.sub('\W+','',title_split[-1].split('scans')[-1])
-        # spectrum['params']['title'] = ':'.join(['mzspec', 'repoID',
-        #                   re.sub("\W$",'',title_split[0].split('\\')[-1]),
-        #                   'scan',
-        #                   re.sub('\W+','',title_split[-1].split('scans')[-1])])        
+        # for MSconvert generated MGF
+        title_split = spectrum['params']['title'].split(' ')
+        repoid = re.sub('\W$', '', title_split[1].split('"')[1])
+        scan_number = re.sub('\W+', '', title_split[0].split('.')[1])
+        # # for PD generated MGF
+        # title_split = spectrum['params']['title'].split(';')
+        # repoid = re.sub("\W$",'',title_split[0].split('\\')[-1])
+        # scan_number = re.sub('\W+','',title_split[-1].split('scans')[-1])
+        # # spectrum['params']['title'] = ':'.join(['mzspec', 'repoID',
+        # #                   re.sub("\W$",'',title_split[0].split('\\')[-1]),
+        # #                   'scan',
+        # #                   re.sub('\W+','',title_split[-1].split('scans')[-1])])        
         spectrum['params']['title'] = ':'.join(['mzspec', 'repoID',
                                                 repoid, 'scan', scan_number])
         spectrum['params']['scans'] = scan_number
@@ -489,7 +489,7 @@ def annotateMGF(reformatmgffile, dbsearch_df, temp_dir):
 
 
 # Contruct ML friendly spectra matrix
-def generateCSV(usimgffile, reformatmgffile, dbsearch_df, annotation_results, csvfile, temp_dir):
+def generateCSV(usimgffile, reformatmgffile, dbsearch_df, annotation_results, csvfile, temp_dir, contrastcsvfile):
     assert "file" in dbsearch_df.columns
     assert "scan" in dbsearch_df.columns
     assert "charge" in dbsearch_df.columns
@@ -549,6 +549,11 @@ def generateCSV(usimgffile, reformatmgffile, dbsearch_df, annotation_results, cs
 
     dataset = pd.concat([mzs_df_new, annotation_results_new], axis=1)
     dataset = dataset.dropna()
+
+    # To prevent data leaking, only keep the peptides that are not in the contrast dataset
+    if (contrastcsvfile is not None):
+        constrast_dataset = pd.read_csv(contrastcsvfile, sep=',')
+        dataset = dataset[~dataset['proforma'].isin(constrast_dataset['proforma'])]
     dataset.to_csv(csvfile, index=False)
 
     print('Generating CSV Done!')
@@ -737,7 +742,7 @@ def main():
 
     if (workflow == 'split'):
         # hold out N records as testset
-        splitMGF(mgffile, trainsetfile, testsetfile, n_test=1000)
+        splitMGF(mgffile, trainsetfile, testsetfile, n_test=5000)
         print('Splitting train vs test set Done!')
     # reformat the Spectra
     elif (workflow == 'train' or workflow == 'test'):
@@ -749,8 +754,12 @@ def main():
             annotation_results = pd.read_csv(temp_dir+'annotatedMGF.csv')
         # match peptide from PSM with spectra MGF
         if not os.path.isfile(reformatmgffile):
-            dataset = generateCSV(usimgffile, reformatmgffile, dbsearch_df, annotation_results,
-                                  csvfile, temp_dir)
+            if (workflow == 'train'):
+                dataset = generateCSV(usimgffile, reformatmgffile, dbsearch_df, annotation_results,
+                                      csvfile, temp_dir, None)
+            elif (workflow == 'test'):
+                dataset = generateCSV(usimgffile, reformatmgffile, dbsearch_df, annotation_results,
+                                      csvfile, temp_dir, traincsvfile)
         # transform to hdf5
         dataset = constructDataset(csvfile)
         to_hdf5(dataset, hdf5file)
