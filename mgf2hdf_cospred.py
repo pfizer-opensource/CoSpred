@@ -236,7 +236,7 @@ def reformatMGF_wSeq(mgffile, reformatmgffile):
     return spectra
 
 
-def splitMGF(mgffile, trainsetfile, testsetfile, n_test=1000):
+def splitMGF(mgffile, trainsetfile, testsetfile, n_test=5000):
     # fix random seed for reproducibility
     seed = 42
     np.random.seed(seed)
@@ -305,7 +305,7 @@ def modifyMGFtitle(usimgffile, reformatmgffile, temp_dir):
 
 # Contruct ML friendly spectra matrix for transformer full prediction
 def generateHDF5_transformer_wSeq(usimgffile, reformatmgffile, csvfile,
-                                  hdf5file, temp_dir):
+                                  hdf5file, temp_dir, contrastcsvfile):
     # retrieve spectrum of PSM from MGF
     start_time = time.time()        # start time for parsing
     spectra = mgf.read(usimgffile)
@@ -377,6 +377,11 @@ def generateHDF5_transformer_wSeq(usimgffile, reformatmgffile, csvfile,
     mzs_df.columns = mzs_df.columns.str.replace('[\r]', '')
     print('replace newline: ' + str(time.time()-start_time))
 
+    # To prevent data leaking, only keep the peptides that are not in the contrast dataset
+    if (contrastcsvfile is not None):
+        constrast_dataset = pd.read_csv(contrastcsvfile, sep=',')
+        mzs_df = mzs_df[~mzs_df['proforma'].isin(constrast_dataset['proforma'])]
+
     mzs_df.to_csv(csvfile, index=False)      # CSV discards values in large vec
     print('Write CSV: ' + str(time.time()-start_time))
     print('Generating CSV Done!')
@@ -420,7 +425,7 @@ def main():
             trainsetfile = constants_location.REFORMAT_TRAIN_USITITLE_PATH
             testsetfile = constants_location.REFORMAT_TEST_USITITLE_PATH
         # hold out N records as testset
-        splitMGF(mgffile, trainsetfile, testsetfile, n_test=1000)
+        splitMGF(mgffile, trainsetfile, testsetfile, n_test=5000)
     elif (workflow == 'train' or workflow == 'test'):
         if workflow == 'train':
             usimgffile = constants_location.REFORMAT_TRAIN_USITITLE_PATH
@@ -434,8 +439,14 @@ def main():
             hdf5file = constants_location.TESTDATA_PATH
             csvfile = testcsvfile
             datasetfile = constants_location.TESTDATASET_PATH
-        dataset = generateHDF5_transformer_wSeq(usimgffile, reformatmgffile,
-                                                csvfile, hdf5file, temp_dir)
+        # generate CSV for train and test list
+        if not os.path.isfile(reformatmgffile):
+            if (workflow == 'train'):
+                dataset = generateHDF5_transformer_wSeq(usimgffile, reformatmgffile,
+                                                csvfile, hdf5file, temp_dir, None)
+            elif (workflow == 'test'):
+                dataset = generateHDF5_transformer_wSeq(usimgffile, reformatmgffile,
+                                                csvfile, hdf5file, temp_dir, traincsvfile)
         io_local.to_hdf5(dataset, hdf5file)
         io_local.to_arrow(dataset, datasetfile)
         print('Saving Dataset Done!')
