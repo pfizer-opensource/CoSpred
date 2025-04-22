@@ -1,0 +1,22 @@
+metadata_version: 1
+name: 'CoSpred: Machine learning workflow to predict tandem mass spectrum in proteomics'
+description: |-
+  Complete MSMS spectrum prediction workflow.
+
+  This provide workflow to prepare your own training datasets from raw files and convert them into tensors. These tensors are input for machine learning architecure. The architecture can be build using Tensorflow or Pytorch framework.
+authors:
+- name: Liang Xue
+  affiliations:
+  - name: Pfizer
+- name: Shivani Tiwary
+  affiliations:
+  - name: Pfizer
+- name: Mykola Bordyuh
+  affiliations:
+  - name: Pfizer
+- name: Robert Stanton
+  affiliations:
+  - name: Pfizer
+corresponding_contributor:
+  name: Liang Xue
+  email: liang.xue@pfizer.com
