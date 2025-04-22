@@ -43,7 +43,7 @@ cd environment && docker build . --tag cospred; cd ..
 
 ### 3. Run the docker container to reproduce the results
 
-In your terminal, navigate to the folder where you've extracted the capsule and execute the following command, adjusting parameters as needed:
+In your terminal, navigate to the demo folder where you've extracted the capsule and execute the following command, adjusting parameters as needed:
 ```shell
 docker run --platform linux/amd64 --rm --gpus all \
   --workdir /capsule \

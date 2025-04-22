@@ -34,6 +34,9 @@ python spectra_plot.py
 # --- END of main codes --- #
 
 # store result
-mv data ../../results/                  # transformed data
-mv model_spectra ../../results/         # trained models
-mv prediction ../../results/            # prediction results
+cp -rf data ../../results/                  # transformed data
+cp -rf model_spectra ../../results/         # trained models
+cp -rf prediction ../../results/            # prediction results
+rm -rf data
+rm -rf model_spectra
+rm -rf prediction
