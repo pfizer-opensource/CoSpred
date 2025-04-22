@@ -3,8 +3,8 @@ set -ex
 
 pwd
 # clone repo
-# git clone https://github.com/pfizer-opensource/CoSpred.git --depth 1
-git -C CoSpred pull || git clone https://github.com/pfizer-opensource/CoSpred.git CoSpred --depth 1
+git clone https://github.com/pfizer-opensource/CoSpred.git --depth 1
+# git -C CoSpred pull || git clone https://github.com/pfizer-opensource/CoSpred.git CoSpred --depth 1
 
 # copy example data and models to the corresponding directory
 mkdir -p CoSpred/prediction
@@ -33,10 +33,12 @@ python prediction.py -f
 python spectra_plot.py
 # --- END of main codes --- #
 
-# store result
+# store result and clean up
 cp -rf data ../../results/                  # transformed data
 cp -rf model_spectra ../../results/         # trained models
 cp -rf prediction ../../results/            # prediction results
 rm -rf data
 rm -rf model_spectra
 rm -rf prediction
+cd ..
+rm -rf CoSpred
