@@ -6,12 +6,15 @@ import params.constants as constants
 from prosit_model import layers, utils
 from cospred_model.model.transformerEncoder import TransformerConfig, TransformerEncoder
 
-MODEL_NAME = "model.json"
+
+MODEL_BiGRU_NAME = "model_bigru.json"
+MODEL_BiGRU_BYION_NAME = "model_bigru_byion.json"
+MODEL_BiGRU_FULLSPEC_NAME = "model_bigru_fullspectrum.json"
 CONFIG_NAME = "config.json"
 
 
-def is_weight_name(w, flag_prosit, flag_fullspectrum):
-    if flag_prosit is True:
+def is_weight_name(w, flag_bigru, flag_fullspectrum):
+    if flag_bigru is True:
         if flag_fullspectrum is True:
             return w.startswith("prosit_full_") and w.endswith(".hdf5")
         else:
@@ -23,38 +26,41 @@ def is_weight_name(w, flag_prosit, flag_fullspectrum):
             return w.startswith("transformer_byion_") and w.endswith(".pt")
 
 
-def get_loss(x, flag_prosit):
-    if flag_prosit is True:
+def get_loss(x, flag_bigru):
+    if flag_bigru is True:
         return float(re.sub('[a-zA-Z]+', '', x.split("_")[-1][:-len('.hdf5')]))
     else:
         return float(re.sub('[a-zA-Z]+', '', x.split("_")[-1][:-len('.pt')]))
 
 
-def get_best_weights_path(model_dir, flag_prosit, flag_fullspectrum):
-    weights = list(filter(lambda x: is_weight_name(x, flag_prosit, flag_fullspectrum),
+def get_best_weights_path(model_dir, flag_bigru, flag_fullspectrum):
+    weights = list(filter(lambda x: is_weight_name(x, flag_bigru, flag_fullspectrum),
                           os.listdir(model_dir)))
     if len(weights) == 0:
         print("No existing weight files founded.")
         return None
     else:
-        d = {get_loss(w, flag_prosit): w for w in weights}
+        d = {get_loss(w, flag_bigru): w for w in weights}
         weights_path = os.path.join(model_dir, d[min(d)])
         # weights_path = "{}/{}".format(model_dir, d[min(d)])
         return weights_path
 
 
-def load(model_dir, flag_fullspectrum, flag_prosit, trained=False):
+def load(model_dir, flag_fullspectrum, flag_bigru, trained=False):
 
     config_path = os.path.join(model_dir, CONFIG_NAME)
     with open(config_path, "r") as f:
         config = json.load(f)
 
     weights_path = get_best_weights_path(
-        model_dir, flag_prosit, flag_fullspectrum)
+        model_dir, flag_bigru, flag_fullspectrum)
 
-    if flag_prosit is True:
+    if flag_bigru is True:
         import tensorflow as tf
-        model_path = os.path.join(model_dir, MODEL_NAME)
+        if flag_fullspectrum is True:
+            model_path = os.path.join(model_dir, MODEL_BiGRU_FULLSPEC_NAME)
+        else:
+            model_path = os.path.join(model_dir, MODEL_BiGRU_BYION_NAME)
         # load model
         with open(model_path, "r") as f:
             model = tf.keras.models.model_from_json(
@@ -96,7 +102,7 @@ def load(model_dir, flag_fullspectrum, flag_prosit, trained=False):
 
 
 def save(model, config, model_dir):
-    model_path = MODEL_NAME.format(model_dir)
+    model_path = MODEL_BiGRU_NAME.format(model_dir)
     config_path = CONFIG_NAME.format(model_dir)
     utils.check_mandatory_keys(config, ["name", "optimizer", "loss", "x", "y"])
     with open(config_path, "w") as f:

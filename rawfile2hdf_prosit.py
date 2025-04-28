@@ -13,12 +13,15 @@ import functools
 import h5py
 
 from preprocess import utils
+import io_cospred
+
 import params.constants_location as constants_location
 from params.constants import (
     ALPHABET_S,
     CHARGES,
     MAX_SEQUENCE,
     ALPHABET,
+    AMINO_ACID,
     MAX_ION,
     NLOSSES,
     ION_TYPES,
@@ -120,14 +123,17 @@ def peptide_parser(p):
 def get_sequence_integer(sequences):
     array = np.zeros([len(sequences), MAX_SEQUENCE])
     for i, sequence in enumerate(sequences):
-        if len(sequence) > MAX_SEQUENCE:
-            pass
-        else:
-            for j, s in enumerate(utils.peptide_parser(sequence)):
-                # # POC: uppercase all amino acid, so no PTM
-                # array[i, j] = ALPHABET[s.upper()]
-                # #
-                array[i, j] = ALPHABET[s]
+        try:
+            if len(sequence) > MAX_SEQUENCE:
+                pass
+            else:
+                for j, s in enumerate(utils.peptide_parser(sequence)):
+                    # # POC: uppercase all amino acid, so no PTM
+                    # array[i, j] = ALPHABET[s.upper()]
+                    # #
+                    array[i, j] = ALPHABET[s]
+        except:
+            next
     return array
 
 
@@ -229,7 +235,8 @@ def getPSM(psmfile):
                    'First Scan': 'scan', 'Spectrum File': 'file'}
     target_cols.keys()
     dbsearch = pd.read_csv(
-        psmfile, sep='\t', keep_default_na=False, na_values=['NaN'])
+        psmfile, sep='\t', keep_default_na=False, 
+        na_values=['NaN'], index_col=False)
     dbsearch = dbsearch[dbsearch['Confidence'] == 'High'][target_cols.keys()]
     dbsearch = dbsearch.rename(columns=target_cols)
 
@@ -552,11 +559,11 @@ def generateCSV(usimgffile, reformatmgffile, dbsearch_df, annotation_results, cs
 
     # To prevent data leaking, only keep the peptides that are not in the contrast dataset
     if (contrastcsvfile is not None):
-        constrast_dataset = pd.read_csv(contrastcsvfile, sep=',')
+        constrast_dataset = pd.read_csv(contrastcsvfile, sep=',', index_col=False)
         dataset = dataset[~dataset['proforma'].isin(constrast_dataset['proforma'])]
     dataset.to_csv(csvfile, index=False)
 
-    print('Generating CSV Done!')
+    print('Generating CSV ... DONE!')
 
     modifyMGFtitle(usimgffile, reformatmgffile, temp_dir)
     return dataset
@@ -592,6 +599,7 @@ def get_PrositArray(df, vectype):
         array = np.zeros(
             [MAX_ION, len(ION_TYPES), len(NLOSSES), MAX_FRAG_CHARGE])
         lstions = str(row.matches_raw).split(";")
+        # lstions = str(row.masses).split(";")
         lstmasses = str(row[vectype]).split(";")
         for i in ION_TYPES:
             patternn = r"^" + i + "[0-9]+"
@@ -635,8 +643,8 @@ def constructPrositVec(df, vectype):
     return array
 
 
-def constructDataset(csvfile):
-    df = pd.read_csv(csvfile, sep=',')
+def constructDataset_byion(csvfile):
+    df = pd.read_csv(csvfile, sep=',', index_col=False)
 
     assert "modified_sequence" in df.columns
     assert "collision_energy" in df.columns
@@ -644,7 +652,7 @@ def constructDataset(csvfile):
     assert "intensities" in df.columns
     assert "masses" in df.columns
 
-    df.dropna(subset=['intensities', 'matches_raw'], inplace=True)
+    df.dropna(subset=['intensities', 'masses'], inplace=True)
     df.columns = df.columns.str.replace('[\r]', '')
 
     # construct Dataset based on Prosit definition
@@ -666,31 +674,6 @@ def constructDataset(csvfile):
     }
 
     return dataset
-
-
-def read_hdf5(path, n_samples=None):
-    # Get a list of the keys for the datasets
-    with h5py.File(path, 'r') as f:
-        print(f.keys())
-        dataset_list = list(f.keys())
-        for dset_name in dataset_list:
-            print(dset_name)
-            print(f[dset_name][:6])
-        f.close()
-    return dataset_list
-
-
-def to_hdf5(dictionary, path):
-    dt = h5py.string_dtype(encoding='utf-8')
-
-    with h5py.File(path, "w") as f:
-        for key, data in dictionary.items():
-            # f.create_dataset(key, data=data, dtype=data.dtype, compression="gzip")
-            if (data.dtype == 'object'):
-                f.create_dataset(key, data=data, dtype=dt, compression="gzip")
-            else:
-                f.create_dataset(
-                    key, data=data, dtype=data.dtype, compression="gzip")
 
 
 def main():
@@ -730,6 +713,11 @@ def main():
         datasetfile = testsetfile
         csvfile = testcsvfile
         hdf5file = constants_location.TESTDATA_PATH
+    elif (workflow == 'predict'):
+        # datasetfile = testsetfile
+        csvfile = constants_location.PREDICT_ORIGINAL
+        predict_csv = constants_location.PREDICTCSV_PATH
+        hdf5file = constants_location.PREDDATA_PATH
     else:
         print("Unknown workflow choice.")
 
@@ -737,13 +725,14 @@ def main():
         os.makedirs(temp_dir)
 
     # get psm result
-    dbsearch = getPSM(psmfile)
-    dbsearch_df = dbsearch
+    if (workflow != 'predict'):
+        dbsearch = getPSM(psmfile)
+        dbsearch_df = dbsearch
 
     if (workflow == 'split'):
         # hold out N records as testset
         splitMGF(mgffile, trainsetfile, testsetfile, n_test=5000)
-        print('Splitting train vs test set Done!')
+        print('Splitting train vs test set ... DONE!')
     # reformat the Spectra
     elif (workflow == 'train' or workflow == 'test'):
         if not os.path.isfile(usimgffile):
@@ -751,7 +740,7 @@ def main():
                         dbsearch_df, usimgffile, temp_dir)
             annotation_results = annotateMGF(usimgffile, dbsearch_df, temp_dir)
         else:
-            annotation_results = pd.read_csv(temp_dir+'annotatedMGF.csv')
+            annotation_results = pd.read_csv(temp_dir+'annotatedMGF.csv', index_col=False)
         # match peptide from PSM with spectra MGF
         if not os.path.isfile(reformatmgffile):
             if (workflow == 'train'):
@@ -761,9 +750,20 @@ def main():
                 dataset = generateCSV(usimgffile, reformatmgffile, dbsearch_df, annotation_results,
                                       csvfile, temp_dir, traincsvfile)
         # transform to hdf5
-        dataset = constructDataset(csvfile)
-        to_hdf5(dataset, hdf5file)
-        print('Generating HDF5 Done!')
+        dataset = constructDataset_byion(csvfile)
+        io_cospred.to_hdf5(dataset, hdf5file)
+        print('Generating HDF5 ... DONE!')
+        # reformat the Spectra
+    elif (workflow == 'predict'):
+        if not os.path.isfile(csvfile):
+            print('No peptide list available!')
+        else:
+            # transform to hdf5
+            dataset = io_cospred.constructDataset_frompep(csvfile, predict_csv)
+            io_cospred.to_hdf5(dataset, hdf5file)
+            # check generated hdf
+            io_cospred.read_hdf5(hdf5file)
+            print('Generating HDF5 ... DONE!')
     else:
         print("Unknown workflow choice.")
 

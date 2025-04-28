@@ -28,6 +28,9 @@ def reshape_flat(array):
 def normalize_base_peak(array):
     # flat
     maxima = array.max(axis=1)
+    # To prevent invalid value encountered in divide
+    maxima[maxima == 0] = 1e-10  # Replace zeros
+    maxima = numpy.nan_to_num(maxima, nan=1e-10, posinf=1e-10, neginf=1e-10)  # Handle NaN or Inf
     array = array / maxima[:, numpy.newaxis]
     return array
 

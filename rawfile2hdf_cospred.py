@@ -15,10 +15,13 @@ from params.constants import (
     CHARGES,
     MAX_SEQUENCE,
     ALPHABET,
+    AMINO_ACID,
     METHODS,
 )
+
 from preprocess import utils
 from prosit_model import io_local
+import io_cospred
 
 COL_SEP = "\t"
 
@@ -324,8 +327,8 @@ def reformatMGF(mgffile, mzmlfile, dbsearch_df, reformatmgffile, temp_dir):
 
 def constructCospredVec(mz_arr, intensity_arr):
     intensity_arr = intensity_arr / np.max(intensity_arr)
-    vector_intensity = np.zeros(SPECTRA_DIMENSION, dtype=np.float32)
-    vector_mass = np.arange(0, BIN_MAXMZ, BIN_SIZE, dtype=np.float32)
+    vector_intensity = np.zeros(SPECTRA_DIMENSION, dtype=np.float16)
+    vector_mass = np.arange(0, BIN_MAXMZ, BIN_SIZE, dtype=np.float16)
     index_arr = mz_arr / BIN_SIZE
     index_arr = np.around(index_arr).astype('int16')
 
@@ -466,6 +469,44 @@ def generateHDF5_transformer(usimgffile, reformatmgffile, dbsearch_df, csvfile, 
     return dataset
 
 
+def constructDataset_fullspectrum(csvfile, predict_csv):
+    df = pd.read_csv(csvfile, sep=',', index_col=False)
+
+    df = io_cospred.sanitizePeptide(df, predict_csv)
+
+    assert "modified_sequence" in df.columns
+    assert "collision_energy" in df.columns
+    assert "precursor_charge" in df.columns
+    assert "intensities" in df.columns
+    assert "masses" in df.columns
+
+    df.dropna(subset=['intensities', 'masses'], inplace=True)
+    df.columns = df.columns.str.replace('[\r]', '')
+
+    intensity_vec, mz_vec = constructCospredVec(
+                df['masses'], df['intensities'])
+
+    # construct Dataset based on Prosit definition
+    dataset = {
+        "collision_energy": get_float(df['collision_energy']),
+        "collision_energy_aligned": get_float(df['collision_energy']),
+        "collision_energy_aligned_normed": get_float(df['collision_energy']/100.0),
+        "intensities_raw": intensity_vec,
+        "masses_pred": mz_vec,
+        "masses_raw": mz_vec,
+        "method": get_method_onehot(df['method']).astype(int),
+        "precursor_charge_onehot": get_precursor_charge_onehot(df['precursor_charge']).astype(int),
+        "rawfile": df['raw_file'].astype('S32'),
+        "reverse": get_boolean(df['reverse']),
+        "scan_number": get_number(df['scan_number']),
+        "score": get_float(df['score']),
+        "sequence_integer": get_sequence_integer(df['modified_sequence']).astype(int),
+        "sequence_onehot": get_sequence_onehot(df['modified_sequence']).astype(int),
+    }
+
+    return dataset
+
+
 def main():
     parser = ArgumentParser()
     parser.add_argument('-w', '--workflow', default='test',
@@ -495,6 +536,10 @@ def main():
         hdf5file = constants_location.TESTDATA_PATH
         datasetfile = testsetfile
         csvfile = testcsvfile
+    elif (workflow == 'predict'):
+        csvfile = constants_location.PREDICT_ORIGINAL
+        predict_csv = constants_location.PREDICTCSV_PATH
+        hdf5file = constants_location.PREDDATA_PATH
     else:
         print("Unknown workflow choice.")
 
@@ -502,8 +547,9 @@ def main():
         os.makedirs(temp_dir)
 
     # get psm result
-    dbsearch = getPSM(psmfile)
-    dbsearch_df = dbsearch
+    if (workflow != 'predict'):
+        dbsearch = getPSM(psmfile)
+        dbsearch_df = dbsearch
 
     if (workflow == 'split'):
         # hold out N records as testset
@@ -523,6 +569,18 @@ def main():
                                                 csvfile, traincsvfile)
         io_local.to_hdf5(dataset, hdf5file)
         print('Generating HDF5 Done!')
+    elif (workflow == 'predict'):
+        if not os.path.isfile(csvfile):
+            print('No peptide list available!')
+        else:
+            # transform to hdf5
+            dataset = io_cospred.constructDataset_frompep(csvfile, predict_csv)
+            io_cospred.to_hdf5(dataset, hdf5file)
+            # check generated hdf
+            io_cospred.read_hdf5(hdf5file)
+            print('Generating HDF5 ... DONE!')
+    else:
+        print("Unknown workflow choice.")
 
 
 if __name__ == "__main__":

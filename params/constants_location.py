@@ -35,7 +35,14 @@ EXAMPLE_DIR = BASE_PATH + "examples/"
 
 # prediction
 PREDICT_FORMAT = 'msp'
-PREDICT_INPUT = TESTCSV_PATH
+PREDICT_ORIGINAL = DATA_DIR + "peptides.csv"
+PREDICTCSV_PATH = DATA_DIR + "peptidelist_predict.csv"
+PREDDATA_PATH = DATA_DIR + "predict.hdf5"
+PREDDATASET_PATH = DATA_DIR + "predict_arrow/"
 REFERENCE_SPECTRA = REFORMAT_TEST_PATH
 PREDICT_DIR = BASE_PATH + "prediction/"
+PREDICT_BATCH_DIR = PREDICT_DIR + "predictions_batches/"
+PREDICT_RESULT_FILE = PREDICT_BATCH_DIR + "predictions_result.h5"
+PREDICT_COMBINED_FILE = PREDICT_BATCH_DIR + "combined_result.h5"
+
 PLOT_DIR = PREDICT_DIR + "plot/"

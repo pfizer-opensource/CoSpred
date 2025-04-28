@@ -69,7 +69,7 @@ Or use the package manager [pip](https://pip.pypa.io/en/stable/) to install depe
 
 * Main configuration regarding file location and preprocessing parameters could be found and modified in `params` folder. 
 
-* For B/Y ion prediction, training parameters and model setup could be found in JSON files under `model_spectra` folder. Edit `model_construct.py` to modify architecture and generate compatible `model.json` file. Two examples `model_byion.json` and `model_fullspectrum.json` were provided.
+* For BiGRU based training parameters and model setup could be found in JSON files under `model_spectra` folder. Edit `model_construct.py` to modify architecture and generate compatible `model.json` file. Two examples `model_byion.json` and `model_fullspectrum.json` were provided.
 
 ```bash
 python model_construct.py
@@ -144,13 +144,15 @@ Keep the best model under `model_spectra` folder. Some pre-trained model could b
 * For B/Y ion, Transformer model: `transformer_byion_[YYYYMMDD]_[HHMMSS]_epoch[integer]_loss[numeric].pt`
 * For full spectrum, Transformer model: `transformer_full_[YYYYMMDD]_[HHMMSS]_epoch[integer]_loss[numeric].pt`
 
-With trained models, predict spectrum given peptide sequences from `peptidelist_test.csv`. Performance evaluation will be executed with `-e` argument, as long as ground truth `test.hdf5` is provided. Performance results will be stored under `prediction` folder, and the predicted spectra will be stored in `peptidelist_pred.msp`.
+With trained models, predict spectrum given peptide sequences from `peptidelist_test.csv`. Performance evaluation will be executed with `-e` argument, as long as ground truth a) `test.hdf5` or b) `example_PSMs.txt` with `test_usi.mgf` is provided. Performance results will be stored under `prediction` folder, and the predicted spectra will be stored in `peptidelist_pred.msp`.
+Workflows could be selected by arguments, including 1) `-f`: opt in full MS/MS spectrum model instead of B/Y ions; 2) `-c`: chucking the input dataset (to prevent memory overflow by large dataset); 3) `-b`: opt in for BiGRU model instead of Transformer. Some examples like below.
 
 ```bash
-python prediction.py -p   # Predict B/Y ion spectrum prediction using BiGRU architecture.
+python prediction.py -b   # Predict B/Y ion spectrum prediction using BiGRU architecture.
 python prediction.py      # Predict B/Y ion spectrum prediction using Transformer architecture.
-python prediction.py -pf   # Predict full spectrum prediction using BiGRU architecture. 
+python prediction.py -bf   # Predict full spectrum prediction using BiGRU architecture. 
 python prediction.py -f   # Predict full spectrum prediction using Transformer architecture. 
+python prediction.py -fc   # Predict full spectrum prediction using Transformer architecture, with chunking for accomodating large peptide list. 
 ```
 
 ### 6. Plotting

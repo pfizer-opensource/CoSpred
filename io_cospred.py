@@ -3,15 +3,66 @@ import h5py
 import pandas as pd
 from datasets import Dataset, load_from_disk, concatenate_datasets
 import os
+import shutil
 import re
 
 from prosit_model import utils
 import params.constants as constants
+from params.constants import (
+    ALPHABET,
+    AMINO_ACID,
+    CHARGES,
+    MAX_SEQUENCE,
+)
+
+
+def get_float(vals, dtype=float):
+    a = np.array(vals).astype(dtype)
+    return a.reshape([len(vals), 1])
+
+
+def get_precursor_charge_onehot(charges):
+    array = np.zeros([len(charges), max(CHARGES)])
+    for i, precursor_charge in enumerate(charges):
+        if precursor_charge > max(CHARGES):
+            pass
+        else:
+            array[i, int(precursor_charge) - 1] = 1
+    return array
+
+
+def get_sequence_integer(sequences):
+    array = np.zeros([len(sequences), MAX_SEQUENCE])
+    for i, sequence in enumerate(sequences):
+        try:
+            if len(sequence) > MAX_SEQUENCE:
+                pass
+            else:
+                for j, s in enumerate(utils.peptide_parser(sequence)):
+                    # # POC: uppercase all amino acid, so no PTM
+                    # array[i, j] = ALPHABET[s.upper()]
+                    # #
+                    array[i, j] = ALPHABET[s]
+        except:
+            next
+    return array
 
 
 def get_array(tensor, keys):
     utils.check_mandatory_keys(tensor, keys)
     return [tensor[key] for key in keys]
+
+
+def read_hdf5(path, n_samples=None):
+    # Get a list of the keys for the datasets
+    with h5py.File(path, 'r') as f:
+        # print(f.keys())
+        dataset_list = list(f.keys())
+        for dset_name in dataset_list:
+            print(dset_name)
+            print(f[dset_name][:3])
+        f.close()
+    return dataset_list
 
 
 def to_hdf5(dictionary, path):
@@ -39,11 +90,11 @@ def from_hdf5(file_path, model_config, tensorformat='torch'):
     for feature in dataset_list:
         dataset[feature] = np.array(f[feature])
     f.close()
-    print("Construct dictrionary DONE")
+    print("Construct dictrionary ... DONE")
 
     # construct hugginface dataset from dictionary
     dataset = Dataset.from_dict(dataset)
-    print("Construct Dataset DONE")
+    print("Construct Dataset ... DONE")
 
     # fix random seed for reproducibility
     seed = 42
@@ -143,7 +194,7 @@ def pdfile_to_arrow(datasetdictfile, data_path):
 def to_arrow(dataset, chunk_path):
     if not os.path.exists(chunk_path):
         os.makedirs(chunk_path)
-
+    
     chunksize = constants.CHUNKSIZE
     chunk = {}
     keys_list = [i for i in dataset.keys()]
@@ -176,18 +227,23 @@ def genDataset(file_path, chunk_path, flag_chunk):
         # BEST METHOD: Read arrow chunk files into dataset
         if not os.path.exists(chunk_path):
             os.makedirs(chunk_path)
-            
-            # read from hdf5 file
-            f = h5py.File(file_path, 'r')
-            # Assemble into a dictionary
-            dataset = dict()
-            for feature in set(list(f.keys())):
-                dataset[feature] = np.array(f[feature])
-            f.close()
-            print("Construct dictrionary DONE")
-            # chunking dataset
-            to_arrow(dataset, chunk_path)
-            print("Construct chunk files DONE")
+        else:
+            try:
+                shutil.rmtree(chunk_path)
+                print(f"Folder '{chunk_path}' and its contents deleted successfully.")
+            except OSError as e:
+                print(f"Error deleting folder '{chunk_path}': {e}")
+       
+        # read from hdf5 file
+        f = h5py.File(file_path, 'r')
+        # Assemble into a dictionary
+        dataset = dict()
+        for feature in set(list(f.keys())):
+            dataset[feature] = np.array(f[feature])
+        f.close()
+        # chunking dataset
+        to_arrow(dataset, chunk_path)
+        print("Construct chunk files ... DONE")
 
         dsets = []
         for filename in os.listdir(chunk_path):
@@ -206,11 +262,11 @@ def genDataset(file_path, chunk_path, flag_chunk):
         for feature in set(list(f.keys())):
             dataset[feature] = np.array(f[feature])
         f.close()
-        print("Construct dictrionary DONE")
+        print("Construct dictrionary ... DONE")
 
         # construct hugginface dataset from dictionary
         dataset = Dataset.from_dict(dataset)
-    print("Construct Dataset DONE")
+    print("Construct Dataset ... DONE")
     return dataset
 
 
@@ -230,7 +286,7 @@ def from_arrow(file_path, model_config, n_samples=None):
     # dataset = load_from_disk(file_path)
     # # ALTERNATIVE 2: from dictionary in memory
     # dataset = Dataset.from_dict(f)
-    print("Construct Dataset DONE")
+    print("Construct Dataset ... DONE")
 
     # fix random seed for reproducibility
     seed = 42
@@ -254,3 +310,40 @@ def from_arrow(file_path, model_config, n_samples=None):
     )
 
     return tf_ds_train, tf_ds_val
+
+
+def sanitizePeptide(peptide_df, predict_csv):
+    assert "modified_sequence" in peptide_df.columns
+    assert "collision_energy" in peptide_df.columns
+    assert "precursor_charge" in peptide_df.columns
+
+    peptide_df.dropna(subset=['modified_sequence', 'collision_energy', 'precursor_charge'], inplace=True)
+    peptide_df.columns = peptide_df.columns.str.replace('[\r]', '')
+
+    # get overlap of AMINO_ACID and ALPHABET
+    overlap_keys = set(AMINO_ACID.keys()).intersection(ALPHABET.keys())
+    print("overlap amino acids: ", overlap_keys)
+
+    # remove the rows when modified_sequence has letter not in AMINO_ACID and ALPHABET
+    peptide_df = peptide_df[peptide_df['modified_sequence'].str.contains(
+        '[^' + ''.join(overlap_keys) + ']', na=False) == False]
+    
+    # write a csv file
+    peptide_df.to_csv(predict_csv, index=False)
+
+    return peptide_df
+
+
+def constructDataset_frompep(csvfile, predict_csv):
+    df = pd.read_csv(csvfile, sep=',', index_col=False)
+
+    df = sanitizePeptide(df, predict_csv)
+
+    # construct Dataset based on Prosit definition
+    dataset = {
+        "collision_energy_aligned_normed": get_float(df['collision_energy']/100.0),
+        "precursor_charge_onehot": get_precursor_charge_onehot(df['precursor_charge']).astype(int),
+        "sequence_integer": get_sequence_integer(df['modified_sequence']).astype(int),
+    }
+
+    return dataset

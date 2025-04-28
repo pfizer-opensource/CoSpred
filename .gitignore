@@ -181,6 +181,7 @@ cython_debug/
 
 # Data
 *.hdf
+*.hdf5
 *.pt
 *.zip
 wandb/
@@ -189,6 +190,7 @@ miscellaneous/
 archive/
 data/
 examples/
+results/
 prediction/
 weights/
 temp/
