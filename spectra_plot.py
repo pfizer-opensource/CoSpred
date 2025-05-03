@@ -1,10 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Mar 13 22:50:49 2020
-
-@author: xuel12
-"""
+import logging
 from prosit_model import msp_parser
 import params.constants_location as constants_location
 import params.constants as constants
@@ -19,16 +13,33 @@ import matplotlib
 import matplotlib.pyplot as plt
 matplotlib.use('Agg')
 
+import warnings
+# Suppress warning message of tensorflow compatibility
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+os.environ['TF_CPP_MIN_VLOG_LEVEL'] = '3'
+warnings.filterwarnings("ignore")
 
-fragment_tol_mass = constants.BIN_SIZE
-fragment_tol_mode = constants.BIN_MODE
+# Configure logging
+log_file_plot = os.path.join(constants_location.PREDICT_DIR, "cospred_plot.log")
+logging.basicConfig(
+    filename=log_file_plot,
+    filemode="w",  # Overwrite the log file each time the script runs
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    level=logging.INFO  # Set the logging level (INFO, DEBUG, WARNING, ERROR, CRITICAL)
+)
+
+# Optionally, log to both file and console
+console = logging.StreamHandler()
+console.setLevel(logging.INFO)
+formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+console.setFormatter(formatter)
+logging.getLogger().addHandler(console)
+
+# global variable
 min_mz = 0
-max_mz = constants.BIN_MAXMZ
 min_intensity = 0.02
 
 # single plot
-
-
 def singleplot(feature, predict_mgf, plot_dir):
     # Read the spectrum from an MGF file using Pyteomics.
     spectrum_dict = mgf.get_spectrum(predict_mgf, feature)
@@ -47,13 +58,13 @@ def singleplot(feature, predict_mgf, plot_dir):
                                 retention_time=retention_time,
                                 )
     # Filter and clean up the MS/MS spectrum.
-    spectrum = spectrum.set_mz_range(min_mz=min_mz, max_mz=max_mz). \
-        remove_precursor_peak(fragment_tol_mass, fragment_tol_mode). \
+    spectrum = spectrum.set_mz_range(min_mz=0, max_mz=constants.BIN_MAXMZ). \
+        remove_precursor_peak(constants.BIN_SIZE, constants.BIN_MODE). \
         filter_intensity(min_intensity=min_intensity, max_num_peaks=50)
     # Annotate the MS2 spectrum.
     spectrum = spectrum.annotate_proforma(peptide,
-                                          fragment_tol_mass=fragment_tol_mass,
-                                          fragment_tol_mode=fragment_tol_mode,
+                                          fragment_tol_mass=constants.BIN_SIZE,
+                                          fragment_tol_mode=constants.BIN_MODE,
                                           ion_types="abcxyzImp"
                                           )
     # Plot the MS/MS spectrum.
@@ -65,7 +76,7 @@ def singleplot(feature, predict_mgf, plot_dir):
         os.makedirs(singleplot_dir)
     fig.savefig(singleplot_dir+'{}.png'.format(re.sub('/', '_', identifier)))
     plt.close(fig)
-    print('Single Peptide Plot Done!')
+    logging.info('Single Peptide Plot Done!')
 
 # mirror plot for two different peptides
 
@@ -89,14 +100,14 @@ def mirroplot_twopeptides(peplist, predict_mgf, plot_dir):
                                         retention_time=retention_time,
                                         )
             # Filter and clean up the MS/MS spectrum.
-            spectrum = spectrum.set_mz_range(min_mz=min_mz, max_mz=max_mz). \
-                remove_precursor_peak(fragment_tol_mass, fragment_tol_mode). \
+            spectrum = spectrum.set_mz_range(min_mz=min_mz, max_mz=constants.BIN_MAXMZ). \
+                remove_precursor_peak(constants.BIN_SIZE, constants.BIN_MODE). \
                 filter_intensity(min_intensity=min_intensity, max_num_peaks=50)
 
             # Annotate the MS2 spectrum.
             spectrum = spectrum.annotate_proforma(peptide,
-                                                  fragment_tol_mass=fragment_tol_mass,
-                                                  fragment_tol_mode=fragment_tol_mode,
+                                                  fragment_tol_mass=constants.BIN_SIZE,
+                                                  fragment_tol_mode=constants.BIN_MODE,
                                                   ion_types="abcxyzImp"
                                                   )
             spectra.append(spectrum)
@@ -112,16 +123,14 @@ def mirroplot_twopeptides(peplist, predict_mgf, plot_dir):
     fig.savefig(doubleplot_dir+'{}vs{}.png'.format(re.sub('/', '_', spectrum_top.identifier),
                                                    re.sub('/', '_', spectrum_bottom.identifier)))
     plt.close(fig)
-    print('Double Peptides Plot Done!')
+    logging.info('Double Peptides Plot Done!')
 
 # mirror plot for two dataset
-
-
 def mirroplot_twosets(peplist, predict_mgf, reference_spectra, plot_dir):
     if not os.path.isfile(predict_mgf):
-        print('{} not found'.format(predict_mgf))
+        logging.error('{} not found'.format(predict_mgf))
     elif not os.path.isfile(reference_spectra):
-        print('{} not found'.format(reference_spectra))
+        logging.error('{} not found'.format(reference_spectra))
     else:
         pair = []
         for title in peplist:
@@ -152,15 +161,15 @@ def mirroplot_twosets(peplist, predict_mgf, reference_spectra, plot_dir):
                                                 # modifications=modifications
                                                 )
                     # Filter and clean up the MS/MS spectrum.
-                    spectrum = spectrum.set_mz_range(min_mz=min_mz, max_mz=max_mz). \
-                        remove_precursor_peak(fragment_tol_mass, fragment_tol_mode). \
+                    spectrum = spectrum.set_mz_range(min_mz=min_mz, max_mz=constants.BIN_MAXMZ). \
+                        remove_precursor_peak(constants.BIN_SIZE, constants.BIN_MODE). \
                         filter_intensity(
                             min_intensity=min_intensity, max_num_peaks=50)
 
                     # Annotate the MS2 spectrum.
                     spectrum = spectrum.annotate_proforma(peptide,
-                                                          fragment_tol_mass=fragment_tol_mass,
-                                                          fragment_tol_mode=fragment_tol_mode,
+                                                          fragment_tol_mass=constants.BIN_SIZE,
+                                                          fragment_tol_mode=constants.BIN_MODE,
                                                           ion_types="abcxyzImp"
                                                           )
 
@@ -177,8 +186,8 @@ def mirroplot_twosets(peplist, predict_mgf, reference_spectra, plot_dir):
                             '/{}.png'.format(re.sub('/', '_', identifier)))
                 plt.close(fig)
             except:
-                print('{} Not Found'.format(title))
-        print('Mirror Plot Done!')
+                logging.error('{} Not Found'.format(title))
+        logging.info('Mirror Plot Done!')
 
 
 def peplist_from_csv(csvfile):
@@ -195,19 +204,19 @@ def main():
     parser.parse_args()
 
     plot_dir = constants_location.PLOT_DIR
-    predict_input = constants_location.PREDICT_INPUT
+    predict_csv = constants_location.PREDICTCSV_PATH
     predict_format = constants_location.PREDICT_FORMAT
     predict_dir = constants_location.PREDICT_DIR
     reference_spectra = constants_location.REFERENCE_SPECTRA
+    predict_msp = predict_dir + constants_location.PREDICT_LIB_FILENAME + '.msp'
+    predict_mgf = predict_dir + constants_location.PREDICT_LIB_FILENAME + '.mgf'
 
     assert predict_format == 'msp', "PREDICT_FORMAT should be 'msp'"
-    peptidelistfile = predict_input
+    peptidelistfile = predict_csv
     if not os.path.exists(plot_dir):
         os.makedirs(plot_dir)
 
-    predict_msp = predict_dir + 'peptidelist_pred.msp'
-    predict_mgf = predict_dir + 'peptidelist_pred.mgf'
-
+    
     # get list of peptides for plotting
     peplist = peplist_from_csv(peptidelistfile)
 

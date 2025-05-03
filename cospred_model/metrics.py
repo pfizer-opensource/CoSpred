@@ -5,6 +5,7 @@ Precision, Recall, F1 score, top peak,
 1-5 out of 5 top peaks,
 Spectral distance, Masked spectral distance, pearson correlation, cosine similarity
 """
+import logging
 import torch
 import numpy as np
 from sklearn.metrics import roc_curve, roc_auc_score, auc, RocCurveDisplay
@@ -473,7 +474,7 @@ class ComputeMetrics:
                 fpr[i], tpr[i], _ = roc_curve(y_true[i, :], y_scores[i, :])
                 auclist[i] = auc(tpr[i], fpr[i])
                 if i % 100 == 0:
-                    print('i = {}, tpr= {}, fpr = {}'.format(
+                    logging.info('[RESULT] i = {}, tpr= {}, fpr = {}'.format(
                         i, tpr[i], fpr[i]))
             else:
                 fpr[i] = np.array([0])
@@ -491,8 +492,8 @@ class ComputeMetrics:
         fpr["macro"] = fpr_grid
         tpr["macro"] = mean_tpr
         auclist["macro"] = auc(fpr["macro"], tpr["macro"])
-        print(
-            f"Macro-averaged One-vs-Rest ROC AUC score={auclist['macro']:.3f}")
+        logging.info(
+            f"[RESULT] Macro-averaged One-vs-Rest ROC AUC score={auclist['macro']:.3f}")
 
         fig, ax = plt.subplots(figsize=(6, 6))
         plt.plot(

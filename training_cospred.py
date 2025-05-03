@@ -1,3 +1,4 @@
+import logging
 from prosit_model import metrics as prosit_metrics
 from prosit_model import losses
 from cospred_model.model.transformerEncoder import TransformerConfig, TransformerEncoder
@@ -19,14 +20,34 @@ from keras.utils import plot_model
 import matplotlib
 matplotlib.use('Agg')
 
+import warnings
+# Suppress warning message of tensorflow compatibility
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+os.environ['TF_CPP_MIN_VLOG_LEVEL'] = '3'
+warnings.filterwarnings("ignore")
+
+# Configure logging
+log_file_train = os.path.join(constants_location.PREDICT_DIR, "cospred_train.log")
+logging.basicConfig(
+    filename=log_file_train,
+    filemode="w",  # Overwrite the log file each time the script runs
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    level=logging.INFO  # Set the logging level (INFO, DEBUG, WARNING, ERROR, CRITICAL)
+)
+
+# Optionally, log to both file and console
+console = logging.StreamHandler()
+console.setLevel(logging.INFO)
+formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+console.setFormatter(formatter)
+logging.getLogger().addHandler(console)
 
 def train_transformer(ds_train, ds_val, flag_fullspectrum, model, model_dir):
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
 
-    print("loaded data")
-    print("size of train dataset", len(ds_train))
-    print("size of val dataset", len(ds_val))
+    logging.info("size of train dataset", len(ds_train))
+    logging.info("size of val dataset", len(ds_val))
 
     start_time = int(time.time())       # start time for the training
     # create log folder
@@ -48,9 +69,8 @@ def train_transformer(ds_train, ds_val, flag_fullspectrum, model, model_dir):
                                   max_charge=10, max_ce=100)
         model = TransformerEncoder(mconf)
 
-    print(sum(p.numel() for p in model.parameters()
-          if p.requires_grad), 'model parameters')
-    print(model)
+    logging.info("Parameter: ", sum(p.numel() for p in model.parameters() if p.requires_grad), 'model parameters')
+    logging.info("Model: ", model)
 
     checkpoint_dir = model_dir + model_name
     if not os.path.exists(checkpoint_dir):
@@ -74,13 +94,10 @@ def train_transformer(ds_train, ds_val, flag_fullspectrum, model, model_dir):
     # record elapsed time for the training
     eplased_time = int(time.time() - start_time)
     f = open(model_dir + "exetime.txt", "a")
-    f.write('{}'.format(model_name) + "\t" +
-            log_time_format + '\t' + str(eplased_time) + '\n')
+    f.write('{}'.format(model_name) + "\t" + log_time_format + '\t' + str(eplased_time) + '\n')
     f.close()
 
 # functions for prosit train
-
-
 class TrainingPlot(keras.callbacks.Callback):
     def __init__(self, result_dir):
         self.result_dir = result_dir
@@ -250,8 +267,8 @@ def main():
                         help='full spectrum presentation')
     parser.add_argument('-c', '--chunk', default=False, action='store_true',
                         help='train model in chunk')
-    parser.add_argument('-p', '--prosit', default=False, action='store_true',
-                        help='train with prosit model')
+    parser.add_argument('-b', '--bigru', default=False, action='store_true',
+                        help='train with BiGRU model')
     args = parser.parse_args()
 
     os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # turn off tf logging
@@ -260,17 +277,19 @@ def main():
     data_path = constants_location.TRAINDATA_PATH          # input file
     chunk_path = constants_location.TRAINDATASET_PATH     # chunk file path
     model_dir = constants_location.MODEL_DIR
-    print(data_path)
+    logging.info(f"[USER] Training dataset path: {data_path}")
 
     # load dataset
     dataset = io_cospred.genDataset(data_path, chunk_path, args.chunk)
+    logging.info('[STATUS] INPUT PREPARATION ... DONE')
 
     # load model
     model, model_config, weights_path = model_lib.load(
-        model_dir, args.full, args.prosit, args.trained)
+        model_dir, args.full, args.bigru, args.trained)
 
     # training
-    if args.prosit is True:
+    logging.info('Start Training ...')
+    if args.bigru is True:
         ds_train, ds_val = io_cospred.train_val_split(
             dataset, model_config, tensorformat='tf')
         train_prosit(ds_train, ds_val, args.full,
@@ -279,6 +298,7 @@ def main():
         ds_train, ds_val = io_cospred.train_val_split(
             dataset, model_config, tensorformat='torch')
         train_transformer(ds_train, ds_val, args.full, model, model_dir)
+    logging.info("[STATUS] Training ... COMPLETE")
 
 
 if __name__ == "__main__":

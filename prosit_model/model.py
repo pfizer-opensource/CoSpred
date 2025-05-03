@@ -2,11 +2,8 @@ import os
 import yaml
 import json
 
-#import constants
 from prosit_model import layers, utils
-# import utils
 import tensorflow as tf
-import keras
 
 
 # MODEL_NAME = "model.yml"
@@ -45,7 +42,6 @@ def load(model_dir, trained=False):
             f.read(), custom_objects={"CustomAttention": layers.CustomAttention}
         )
     if trained and (weights_path is not None):
-        print('Loading weight from: {}'.format(weights_path))
         model.load_weights(weights_path)
     return model, config
 

@@ -1,5 +1,6 @@
 import os
-import sys
+import logging
+
 import shutil
 import time
 import torch
@@ -7,9 +8,11 @@ import pandas as pd
 import re
 from pyteomics import mgf
 import spectrum_utils.spectrum as sus
+from datasets import Dataset
 import h5py
 import numpy as np
 from datasets import Dataset
+from statistics import mean
 
 import tensorflow as tf
 import keras
@@ -32,70 +35,89 @@ import warnings
 # Suppress warning message of tensorflow compatibility
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 os.environ['TF_CPP_MIN_VLOG_LEVEL'] = '3'
-warnings.filterwarnings("ignore", category=UserWarning, module="keras.engine.training_v1")
+# warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore")
 
+# Configure logging
+log_file_predict = os.path.join(constants_location.PREDICT_DIR, "cospred_predict.log")
+logging.basicConfig(
+    filename=log_file_predict,
+    filemode="w",  # Overwrite the log file each time the script runs
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    level=logging.INFO  # Set the logging level (INFO, DEBUG, WARNING, ERROR, CRITICAL)
+)
+
+# Optionally, log to both file and console
+console = logging.StreamHandler()
+console.setLevel(logging.INFO)
+formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+console.setFormatter(formatter)
+logging.getLogger().addHandler(console)
+
+# initialize global variables
 global d_spectra
 # global d_irt
 d_spectra = {}
 # d_irt = {}
-
-
-def print_combined_data_sizes(combined_data):
-    """
-    Print the size of each key in the combined_data dictionary.
-
-    Args:
-        combined_data (dict): Dictionary containing datasets from the combined HDF5 file.
-    """
-    print("Combined Prediction Data Sizes:")
-    for key, value in combined_data.items():
-        if isinstance(value, np.ndarray):
-            print(f"Key: {key}, Shape: {value.shape}, Size: {value.nbytes / (1024 * 1024):.2f} MB")
-        elif isinstance(value, list):
-            print(f"Key: {key}, Length: {len(value)}, Approx. Size: {sum(sys.getsizeof(v) for v in value) / (1024 * 1024):.2f} MB")
-        else:
-            print(f"Key: {key}, Type: {type(value)}, Size: {sys.getsizeof(value) / (1024 * 1024):.2f} MB")
-
 
 def combine_hdf5_files(predict_input, predict_result_file, combined_file):
     """
     Combine result HDF5 files with prediction input variable into a single HDF5 file.
 
     Args:
-        predict_input (dictionary/Hugginface Dataset): Input as dictionary/Hugginface Dataset with data and metadata (predict_input).
-        predict_result_file (str): Path to the batch prediction HDF5 file (predict_result_file).
+        predict_input (dictionary/Hugginface Dataset/HDF5 file): Input as dictionary, Hugging Face Dataset, or HDF5 file with data and metadata.
+        predict_result_file (str): Path to the batch prediction HDF5 file.
         combined_file (str): Path to save the combined HDF5 file.
-    """       
+   """       
+    # Define the keys to keep from result_h5 and combined_h5
+    combined_keys_to_keep = ["collision_energy_aligned_normed", "intensities_raw", 
+                           "masses_pred", "precursor_charge_onehot", "sequence_integer"]
+    result_keys_to_keep = ["intensities_pred"]
+
     with h5py.File(predict_result_file, "r") as result_h5:
         # Open the combined HDF5 file for writing
         with h5py.File(combined_file, "w") as combined_h5:
-            # Copy datasets from predict_ds_file
-            for key in result_h5.keys():
-                combined_h5.create_dataset(key, data=result_h5[key][:])
-            
-            # Append or merge datasets from predict_data_file                
-            if isinstance(predict_input, Dataset):  # Handle Dataset objects
+            # Copy only the specified datasets from result_h5 to combined_h5
+            for key in result_keys_to_keep:
+                if key in result_h5:
+                    combined_h5.create_dataset(key, data=result_h5[key][:])
+                else:
+                    logging.warning(f"Warning: Key '{key}' not found in result_h5.")
+            # Append or merge datasets from predict_input
+            if isinstance(predict_input, Dataset):  # Handle Hugging Face Dataset objects
                 for column in predict_input.column_names:
-                    data = np.array(predict_input[column])
-                    if column in combined_h5:
-                        combined_h5[column][...] = np.concatenate((combined_h5[column][:], data), axis=0)
-                    else:
-                        combined_h5.create_dataset(column, data=data)
-            else:
+                    if column in combined_keys_to_keep:
+                        data = np.array(predict_input[column])
+                        if column in combined_h5:
+                            combined_h5[column][...] = np.concatenate((combined_h5[column][:], data), axis=0)
+                        else:
+                            combined_h5.create_dataset(column, data=data)
+            elif isinstance(predict_input, dict):  # Handle dictionary input
                 for key in predict_input.keys():
-                    if key in combined_h5:
-                        # If the dataset already exists, concatenate the data
-                        combined_h5[key][...] = np.concatenate((combined_h5[key][:], predict_input[key][:]), axis=0)
-                    else:
-                        # If the dataset does not exist, create it
-                        combined_h5.create_dataset(key, data=predict_input[key][:])
-        print(f"Combined Prediction saved to {combined_file}")
+                    if key in combined_keys_to_keep:
+                        if key in combined_h5:
+                            combined_h5[key][...] = np.concatenate((combined_h5[key][:], predict_input[key][:]), axis=0)
+                        else:
+                            combined_h5.create_dataset(key, data=predict_input[key])                              
+            elif isinstance(predict_input, str) and (predict_input.endswith(".h5") or predict_input.endswith(".hdf5")):  # Handle HDF5 file input
+                with h5py.File(predict_input, "r") as input_h5:
+                    for key in input_h5.keys():
+                        if key in combined_keys_to_keep:
+                            if key in combined_h5:
+                                # If the dataset already exists, concatenate the data
+                                combined_h5[key][...] = np.concatenate((combined_h5[key][:], input_h5[key][:]), axis=0)
+                            else:
+                                # If the dataset does not exist, create it
+                                combined_h5.create_dataset(key, data=input_h5[key][:])
+            else:
+                raise ValueError("Unsupported predict_input type. Must be a dictionary, Hugging Face Dataset, or HDF5 file.")
+        # logging.info(f"Batch Prediction saved to {combined_file}")
 
 
-def concatenate_hdf5(output_dir, predict_dict, predict_result_file, combined_file):
+def concatenate_hdf5(output_dir, predict_input, predict_result_file, combined_file, flag_fullspectrum=False):
     # Step 1: Read all HDF5 batch files
     batch_files = [os.path.join(output_dir, f) for f in os.listdir(output_dir) if f.endswith(".h5")]
-    print(f"Found {len(batch_files)} batch files to concatenate.")
+    logging.info(f"Found {len(batch_files)} batch files to concatenate.")
 
     # Initialize lists to store concatenated data
     all_predictions = []
@@ -105,27 +127,69 @@ def concatenate_hdf5(output_dir, predict_dict, predict_result_file, combined_fil
     for batch_file in batch_files:
         with h5py.File(batch_file, "r") as h5f:
             all_predictions.append(h5f["intensities_pred"][:])
-            # all_batch_indices.append(h5f["batch_idx"][:])
-
+            
     # Combine all predictions and batch indices
     combined_predictions = np.vstack(all_predictions)
-    # combined_batch_indices = np.concatenate(all_batch_indices)
+    logging.info(f"Predictions Dimension: {combined_predictions.shape}")
 
     # Step 2: Save the batch data to a single HDF5 file
     with h5py.File(predict_result_file, "w") as h5f:
         h5f.create_dataset("intensities_pred", data=combined_predictions)
-        # h5f.create_dataset("batch_idx", data=combined_batch_indices)
-    print(f"Prediction Values saved to {predict_result_file}")
+    # logging.info(f"Prediction Values saved to {predict_result_file}")
 
     # Step 3: Read the single result HDF5 file for combination
-    combine_hdf5_files(predict_dict, predict_result_file, combined_file)
-    combined_data = {}
+    combine_hdf5_files(predict_input, predict_result_file, combined_file)
+    
+    combined_dict = {}
     with h5py.File(combined_file, "r") as h5f:
         for key in h5f.keys():
-            combined_data[key] = h5f[key][:]
-    # print(f"Read Prediction Result HDF5 file: {combined_file}")
+            combined_dict[key] = h5f[key][:]
 
-    return combined_data
+    return combined_dict
+
+
+def concatenate_hdf5_chunk(hdf5_dir, predict_result_file):
+    """
+    Concatenate all HDF5 files in a directory by their keys and save to a single HDF5 file.
+
+    Args:
+        hdf5_dir (str): Directory containing HDF5 files to concatenate.
+        predict_result_file (str): Path to save the concatenated chunk HDF5 file.
+
+    Returns:
+        combined_dict (dict): Dictionary containing concatenated data from all HDF5 files.
+    """
+
+    # Step 1: Collect all HDF5 files in the directory
+    hdf5_files = [os.path.join(hdf5_dir, f) for f in os.listdir(hdf5_dir) if f.endswith(".h5")]
+    logging.info(f"Found {len(hdf5_files)} HDF5 files to concatenate.")
+
+    # Initialize a dictionary to store concatenated data
+    concatenated_data = {}
+
+    # Iterate through each HDF5 file
+    for hdf5_file in hdf5_files:
+        with h5py.File(hdf5_file, "r") as h5f:
+            for key in h5f.keys():
+                data = h5f[key][:]
+                if key in concatenated_data:
+                    concatenated_data[key] = np.concatenate((concatenated_data[key], data), axis=0)
+                else:
+                    concatenated_data[key] = data
+    
+    # Step 2: Save the concatenated data to a single HDF5 file
+    with h5py.File(predict_result_file, "w") as h5f:
+        for key, data in concatenated_data.items():
+            h5f.create_dataset(key, data=data)
+
+    logging.info(f"Prediction Values saved to {predict_result_file}")
+    
+    combined_dict = {}
+    with h5py.File(predict_result_file, "r") as h5f:
+        for key in h5f.keys():
+            combined_dict[key] = h5f[key][:]
+    
+    return combined_dict
 
 
 # Annotate b and y ions to MGF file
@@ -147,7 +211,7 @@ def annotateMGF_wSeq(usimgffile, testcsvfile, temp_dir):
 
     for index, row in csv_df.iterrows():
         if (index % 100 == 0):
-            print('MS2 Annotation Progress: {}%'.format(
+            logging.info('MS2 Annotation Progress: {}%'.format(
                 index/csv_df.shape[0]*100))
 
         try:
@@ -233,7 +297,7 @@ def generateCSV_wSeq(usimgffile, reformatmgffile, predict_csv, annotation_result
     mzs_df = []
     for index, row in csv_df.iterrows():
         if (index % 100 == 0):
-            print('Generating CSV Progress: {}%'.format(
+            logging.info('Generating CSV Progress: {}%'.format(
                 index/csv_df.shape[0]*100))
 
         try:
@@ -275,7 +339,7 @@ def generateCSV_wSeq(usimgffile, reformatmgffile, predict_csv, annotation_result
     dataset = dataset.dropna()
     dataset.to_csv(csvfile, index=False)
 
-    print('Generating CSV ... DONE!')
+    logging.info('Generating CSV ... DONE!')
 
     modifyMGFtitle(usimgffile, reformatmgffile, temp_dir)
     return dataset
@@ -284,7 +348,7 @@ def generateCSV_wSeq(usimgffile, reformatmgffile, predict_csv, annotation_result
 def modifyMGFtitle(usimgffile, reformatmgffile, temp_dir):
     # Rewrite TITLE for the MGF
     if os.path.exists(usimgffile):
-        print('Creating temp MGF file with new TITLE...')
+        logging.info('Creating temp MGF file with new TITLE...')
 
         spectra_origin = mgf.read(usimgffile)
         spectra_new = []
@@ -300,14 +364,14 @@ def modifyMGFtitle(usimgffile, reformatmgffile, temp_dir):
         mgf.write(spectra_new, output=reformatmgffile)
         spectra_origin.close()
     else:
-        print("The reformatted MGF file does not exist")
+        logging.error("The reformatted MGF file does not exist")
 
-    print('MGF file with new TITLE was created!')
+    logging.info('MGF file with new TITLE was created!')
 
 
 def prediction_prosit(predict_batch_dir, predict_result_file, combined_file, 
-                    predict_dict, hf_dataset, d_spectra, flag_fullspectrum, 
-                    flag_evaluate=False, flag_chunk=False):
+                      predict_input, hf_dataset, d_spectra, flag_fullspectrum, 
+                      flag_evaluate=False, flag_chunk=False):
     """
     Perform batch predictions using either HDF5 or Hugging Face Dataset based on flag_chunk.
 
@@ -315,7 +379,7 @@ def prediction_prosit(predict_batch_dir, predict_result_file, combined_file,
         predict_batch_dir (str): Directory to save batch predictions.
         predict_result_file (str): Path to save the combined prediction result.
         combined_file (str): Path to save the final combined HDF5 file.
-        predict_dict (dictionary): Dictionary containing input data and metadata.
+        predict_input (str or dict): Input data, either as an HDF5 file path or a dictionary.
         hf_dataset (Dataset): Hugging Face Dataset containing input data but no metadata.
         d_spectra (dict): Model and configuration dictionary.
         flag_fullspectrum (bool): Whether to use full spectrum.
@@ -332,9 +396,14 @@ def prediction_prosit(predict_batch_dir, predict_result_file, combined_file,
         # Use Hugging Face Dataset for chunked processing
         num_batches = int(np.ceil(len(hf_dataset) / batch_size))
     else:
-        # Use HDF5-based processing
-        x = io_cospred.get_array(predict_dict, d_spectra["config"]["x"])
-        # print(f"Input data shape: {x[0].shape[0]}")
+        # Use HDF5-based processing or dictionary input
+        if isinstance(predict_input, str) and (predict_input.endswith(".h5") or predict_input.endswith(".hdf5")):
+            with h5py.File(predict_input, "r") as h5f:
+                x = [np.array(h5f[key]) for key in d_spectra["config"]["x"]]
+        elif isinstance(predict_input, dict):
+            x = [np.array(predict_input[key]) for key in d_spectra["config"]["x"]]
+        else:
+            raise ValueError("Unsupported predict_input type. Must be an HDF5 file path or a dictionary.")
         num_batches = int(np.ceil(len(x[0]) / batch_size))
     
     # Set the session for Keras
@@ -353,35 +422,33 @@ def prediction_prosit(predict_batch_dir, predict_result_file, combined_file,
         else:
             end_idx = min((batch_idx + 1) * batch_size, len(x[0]))
             x_batch = [element[start_idx:end_idx] for element in x]
-        print(f"Processing batch {batch_idx + 1}/{num_batches}, batch size: {len(x_batch[0])}")
+        logging.info(f"Processing batch {batch_idx + 1}/{num_batches}, batch size: {len(x_batch[0])}")
 
-        # Perform prediction for the batch
+        # Perform prediction for the batch, ensure prediction is in float16
         with d_spectra["graph"].as_default():
-            prediction = d_spectra["model"].predict(x_batch, verbose=True, batch_size=batch_size)
+            prediction = d_spectra["model"].predict(x_batch, verbose=True, batch_size=batch_size).astype(np.float16)
 
         # Save the batch predictions to an HDF5 file
         batch_file = os.path.join(predict_batch_dir, f"batch_{batch_idx + 1}.h5")
         with h5py.File(batch_file, "w") as h5f:
             h5f.create_dataset("intensities_pred", data=prediction)
-        # print(f"Batch {batch_idx + 1}/{num_batches} saved to {batch_file}")
 
-    print(f"PREDICTION computing ... DONE! All result batches saved to {predict_batch_dir}")
+    logging.info(f"PREDICTION computing ... DONE! All result batches saved to {predict_batch_dir}")
 
-    # Combine batch files into a single HDF5 file
-    combined_data = concatenate_hdf5(predict_batch_dir, predict_dict, predict_result_file, combined_file)
-    print_combined_data_sizes(combined_data)
+    combined_dict = concatenate_hdf5(predict_batch_dir, predict_input, predict_result_file, 
+                                     combined_file, flag_fullspectrum)
 
     # Sanitize the combined data
     if d_spectra["config"]["prediction_type"] == "intensity":
-        combined_data = sanitize.prediction(combined_data, flag_fullspectrum, flag_evaluate)
+        combined_dict = sanitize.prediction(combined_dict, flag_fullspectrum, flag_evaluate)
     else:
         raise ValueError("model_config misses parameter")
 
-    return combined_data
+    return combined_dict
 
 
 def prediction_transformer(predict_batch_dir, predict_result_file, combined_file, 
-                           predict_dict, hf_dataset, d_spectra, flag_fullspectrum=True, 
+                           predict_input, hf_dataset, d_spectra, flag_fullspectrum=True, 
                            flag_evaluate=False, flag_chunk=False):
     """
     Perform batch predictions using either HDF5 or Hugging Face Dataset based on flag_chunk.
@@ -390,7 +457,7 @@ def prediction_transformer(predict_batch_dir, predict_result_file, combined_file
         predict_batch_dir (str): Directory to save batch predictions.
         predict_result_file (str): Path to save the combined prediction result.
         combined_file (str): Path to save the final combined HDF5 file.
-        predict_dict (dictionary): Dictionary containing input data and metadata.
+        predict_input (str or dict): Input data, either as an HDF5 file path or a dictionary.
         hf_dataset (Dataset): Hugging Face Dataset containing input data.
         d_spectra (dict): Model and configuration dictionary.
         flag_fullspectrum (bool): Whether to use full spectrum.
@@ -411,16 +478,21 @@ def prediction_transformer(predict_batch_dir, predict_result_file, combined_file
 
     # Prepare data for batch processing
     if flag_chunk:
-        print(f"Input Dataset size: {len(hf_dataset)}")
         num_batches = int(np.ceil(len(hf_dataset) / batch_size))
         data_generator = (
             hf_dataset.select(range(batch_idx * batch_size, min((batch_idx + 1) * batch_size, len(hf_dataset))))
             for batch_idx in range(num_batches)
         )
     else:
-        x = [torch.tensor(predict_dict[column]) for column in d_spectra["config"]["x"]]
+        # Use HDF5-based processing or dictionary input
+        if isinstance(predict_input, str) and (predict_input.endswith(".h5") or predict_input.endswith(".hdf5")):
+            with h5py.File(predict_input, "r") as h5f:
+                x = [torch.tensor(np.array(h5f[column])) for column in d_spectra["config"]["x"]]
+        elif isinstance(predict_input, dict):
+            x = [torch.tensor(np.array(predict_input[column])) for column in d_spectra["config"]["x"]]
+        else:
+            raise ValueError("Unsupported predict_input type. Must be an HDF5 file path or a dictionary.")
         x = torch.cat(x, dim=1)
-        print(f"Input tensor shape: {x.shape}")
         dataset = TensorDataset(x)
         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
         num_batches = len(dataloader)
@@ -429,123 +501,278 @@ def prediction_transformer(predict_batch_dir, predict_result_file, combined_file
     # Perform predictions in batches
     for batch_idx, batch in enumerate(data_generator):
         if flag_chunk:
-            x_batch = [torch.tensor(batch[column]) for column in d_spectra["config"]["x"]]
+            x_batch = [torch.tensor(np.array(batch[column])) for column in d_spectra["config"]["x"]]
             x_batch = torch.cat(x_batch, dim=1)
         else:
             x_batch = batch[0]
 
-        print(f"Processing batch {batch_idx + 1}/{num_batches}, batch size: {x_batch.shape[0]}")
+        logging.info(f"Processing batch {batch_idx + 1}/{num_batches}, batch size: {x_batch.shape[0]}")
 
-        # Perform prediction for the batch
+        # Perform prediction for the batch and ensure x_batch is cast to float16
         x_batch = x_batch.to(d_spectra["device"])
-        prediction = d_spectra["model"].forward(x_batch)[0]
+
+        # Ensure the model is also in float16 precision
+        prediction = d_spectra["model"].forward(x_batch)[0].half()
 
         # Save the batch predictions to an HDF5 file
         batch_file = os.path.join(predict_batch_dir, f"batch_{batch_idx + 1}.h5")
         with h5py.File(batch_file, "w") as h5f:
             h5f.create_dataset("intensities_pred", data=prediction.cpu().detach().numpy())
-        # print(f"Batch {batch_idx + 1}/{num_batches} saved to {batch_file}")
 
         # Clear memory
         del x_batch, prediction
         torch.cuda.empty_cache()  # Optional: Clear GPU memory if using CUDA
-
-    print(f"All prediction batches saved to {predict_batch_dir}")
+    # logging.info(f"All prediction batches saved to {predict_batch_dir}")
 
     # Concatenate batch files
-    combined_data = concatenate_hdf5(predict_batch_dir, predict_dict, predict_result_file, combined_file)
-    print_combined_data_sizes(combined_data)
+    combined_dict = concatenate_hdf5(predict_batch_dir, predict_input, predict_result_file, 
+                                     combined_file, flag_fullspectrum)
 
     # Process predictions based on the model configuration
     if d_spectra["config"]["prediction_type"] == "intensity":
-        combined_data = sanitize.prediction(combined_data, flag_fullspectrum, flag_evaluate)
+        combined_dict = sanitize.prediction(combined_dict, flag_fullspectrum, flag_evaluate)
     else:
         raise ValueError("model_config misses parameter")
 
-    return combined_data
+    return combined_dict
+
+
+def convert_and_save_predictions(pred, predict_filename, predict_format, flag_fullspectrum):
+    if (predict_format == 'maxquant'):
+        df_pred = maxquant.convert_prediction(pred)
+        maxquant.write(df_pred, predict_filename)
+    elif (predict_format == 'msp'):
+        df_pred = msp.Converter(pred, predict_filename,
+                                flag_fullspectrum).convert()
+    else:
+        logging.error("Unknown Formatted Requested.")
+    return df_pred
+
+
+def evaluate_predictions(predict_dict, ref_dict, predict_df, predict_dir):
+    """
+    Evaluate predictions and calculate metrics.
+
+    Args:
+        predict_dict (dict): Dictionary containing predicted values (e.g., 'intensities_pred').
+        ref_dict (dict): Dictionary containing ground truth values and metadata.
+        predict_df (pd.DataFrame): DataFrame containing ground truth values and metadata.
+        predict_dir (str): Directory to save evaluation metrics and plots.
+
+    Returns:
+        None
+    """
+    from statistics import mean
+
+    # Extract ground truth and predicted values
+    y_pred = torch.tensor(predict_dict['intensities_pred'])
+    y_true = torch.tensor(ref_dict['intensities_raw'])
+    seq, charge, ce = predict_df['modified_sequence'], predict_df['precursor_charge'], predict_df['collision_energy']
+
+    # Calculate prediction metrics
+    metrics = ComputeMetrics_CPU(true=y_true, pred=y_pred, seq=seq, charge=charge, ce=ce)
+    metrics_byrecord = pd.DataFrame(metrics.return_metrics_byrecord())
+
+    # Calculate mean of metrics
+    metrics_mean = metrics.return_metrics_mean()
+    metrics_df = pd.DataFrame.from_dict(metrics_mean, orient='index')
+
+    # OPTIONAL: Calculate spectral angle
+    if 'spectral_angle' in predict_dict:
+        spectralangle_df = pd.DataFrame([{'spectral_angle': mean(predict_dict['spectral_angle'])}]).T
+        metrics_df = pd.concat([metrics_df, spectralangle_df], ignore_index=False)
+
+    # Add model name to metrics
+    model_name = d_spectra['weights_path'].split('/')[-1]
+    metrics_df.columns = [model_name]
+    metrics_df[model_name] = metrics_df[model_name].astype(float)
+
+    # Save metrics to CSV files
+    metrics_folder = os.path.join(predict_dir, model_name)
+    os.makedirs(metrics_folder, exist_ok=True)
+    metrics_byrecord.to_csv(os.path.join(metrics_folder, 'metrics_byrecord.csv'))
+    metrics_df.to_csv(os.path.join(metrics_folder, 'metrics.csv'))
+
+    # Plot Precision-Recall curve and ROC curve
+    metrics.plot_PRcurve_micro(metrics_folder)
+    metrics.plot_PRcurve_sample(metrics_folder)
+    metrics.plot_PRcurve_macro(metrics_folder)
+    metrics.plot_ROCcurve_macro(metrics_folder)
+    metrics.plot_ROCcurve_micro(metrics_folder)
+
+    logging.info(f"[USER] Evaluation metrics saved to {metrics_folder}")
+
+
+def initializeDir(predict_hdf5_dir, predict_chunk_dir, predict_batch_dir, predict_lib_dir):
+    # Directory to save predicted library files
+    if os.path.exists(predict_hdf5_dir):
+        shutil.rmtree(predict_hdf5_dir)
+    os.makedirs(predict_hdf5_dir, exist_ok=True)
+
+    # Directory to save chunk HDF5 files
+    if os.path.exists(predict_chunk_dir):
+        shutil.rmtree(predict_chunk_dir)
+    os.makedirs(predict_chunk_dir, exist_ok=True)
+    
+    # Directory to save batch HDF5 files
+    if os.path.exists(predict_batch_dir):
+        shutil.rmtree(predict_batch_dir)
+    os.makedirs(predict_batch_dir, exist_ok=True)
+    
+    # Directory to save predicted library files
+    if os.path.exists(predict_lib_dir):
+        shutil.rmtree(predict_lib_dir)
+    os.makedirs(predict_lib_dir, exist_ok=True)
+    
+
+def arrowchunk_to_chunkdict(arrow_chunk_dir, chunkname, predict_hdf5_dir,
+                            flag_evaluate, flag_fullspectrum):
+    chunkfile = os.path.join(arrow_chunk_dir, chunkname)
+    logging.info(f"Processing chunk: {chunkfile}")
+    chunk_hdf5 = os.path.join(predict_hdf5_dir, f"{chunkname}.h5")
+    io_cospred.arrow_chunk_to_hdf5(chunkfile, chunk_hdf5)
+    chunk_dict = io_cospred.read_hdf5_to_dict(chunk_hdf5)
+
+    # Remove keys from chunk_dict if more than 1D               
+    chunk_dict = io_cospred.remove_keys_with_2darray(chunk_dict)
+    
+    # Convert chunk_dict to pandas DataFrame
+    chunk_df = pd.DataFrame.from_dict(chunk_dict)
+    chunk_df = io_cospred.fixEncoding(chunk_df, 'modified_sequence')
+    
+    # ESSENTIAL: to add mass_pred and intensity_raw columns
+    if flag_evaluate is True:
+        chunk_dict = tensorize.hdf5(chunk_df, chunk_hdf5)
+    else:
+        chunk_dict = tensorize.csv(chunk_df, flag_fullspectrum)
+
+    # ESSENTIAL: to have sequence_integer column, convert hdf5 to hugginface Dataset (Three array for predication only)
+    chunk_ds = io_cospred.genDataset(chunk_hdf5, None, flag_chunk=False)
+
+    return chunk_dict, chunk_ds, chunk_df
 
 
 def predict(predict_csv, predict_dir, predict_format, predict_hdf5, predict_ds,
             flag_prosit, flag_fullspectrum, flag_evaluate, flag_chunk):
-    from statistics import mean
-
-    # Directory to save batch HDF5 files
-    predict_batch_dir = constants_location.PREDICT_BATCH_DIR     # chunk file path
-    if os.path.exists(predict_batch_dir):
-        shutil.rmtree(predict_batch_dir)
-    os.makedirs(predict_batch_dir, exist_ok=True)
-    predict_result_file = constants_location.PREDICT_RESULT_FILE     # chunk file path
-    combined_file = constants_location.PREDICT_COMBINED_FILE     # chunk file path
     
-    if os.path.exists(predict_csv):
-        df = pd.read_csv(predict_csv, index_col=None)
-        if flag_evaluate is True:
-            print('Prediction list with evaluation')
-            predict_dict = tensorize.hdf5(df, hdf5file=predict_hdf5)
+    predict_hdf5_dir = constants_location.PREDICT_HDF5_DIR   
+    predict_chunk_dir = constants_location.PREDICT_CHUNK_DIR
+    predict_batch_dir = constants_location.PREDICT_BATCH_DIR
+    predict_lib_dir = constants_location.PREDICT_LIB_DIR  # predicted library directory
+
+    predict_chunk_result_file = constants_location.PREDICT_CHUNK_RESULT_FILE  # chunk result file path
+    predict_result_file = constants_location.PREDICT_RESULT_FILE  # chunk combined result file path
+    predict_batch_result_file = constants_location.PREDICT_BATCH_RESULT_FILE  # batch result file path
+    combined_batch_file = constants_location.PREDICT_BATCH_COMBINED_FILE  # batch combined result file path
+    speclib_filename = constants_location.PREDICT_LIB_FILENAME
+    arrow_chunk_dir = constants_location.PREDDATASET_PATH
+
+    initializeDir(predict_hdf5_dir, predict_chunk_dir, predict_batch_dir, predict_lib_dir)
+    
+    if predict_format == 'msp':
+        speclib_file = os.path.join(predict_dir, speclib_filename + ".msp")
+    else:
+        speclib_file = os.path.join(predict_dir, speclib_filename + ".txt")
+
+    if os.path.exists(predict_csv):        
+        predict_df = pd.read_csv(predict_csv, index_col=None)
+        if flag_chunk:
+            ### Iterate through Arrow chunks if flag_chunk is True ###           
+            logging.info("Processing dataset in Chunks ...")
+            for chunkname in os.listdir(arrow_chunk_dir):
+                if chunkname.startswith("chunk_") and (not chunkname.endswith(".h5")):
+                    chunk_dict, chunk_ds, chunk_df = arrowchunk_to_chunkdict(
+                        arrow_chunk_dir, chunkname, predict_hdf5_dir, flag_evaluate, flag_fullspectrum)
+
+                    # Perform predictions on the chunk
+                    if flag_prosit:
+                        pred = prediction_prosit(
+                            predict_batch_dir, predict_batch_result_file, combined_batch_file,
+                            chunk_dict, chunk_ds, d_spectra, flag_fullspectrum, flag_evaluate,
+                            flag_chunk=True)
+                    else:
+                        pred = prediction_transformer(
+                            predict_batch_dir, predict_batch_result_file, combined_batch_file,
+                            chunk_dict, chunk_ds, d_spectra, flag_fullspectrum, flag_evaluate,
+                            flag_chunk=True)
+                        
+                    # Save the chunk output to a unique file, all keys include mass, intensity and sequence_integer
+                    chunk_output_file = os.path.join(predict_chunk_dir, f"prediction_output_{chunkname}.h5")
+                    with h5py.File(chunk_output_file, "w") as h5f:
+                        for key, value in pred.items():
+                            h5f.create_dataset(key, data=value)
+                    logging.info(f"{chunkname} Prediction output saved to {chunk_output_file}")
+
+                    # Save the chunk predictions in the requested format  
+                    if predict_format == 'msp':
+                        speclib_chunk_filename = os.path.join(predict_lib_dir, f"{speclib_filename}_{chunkname}.msp")
+                    else:
+                        speclib_chunk_filename = os.path.join(predict_lib_dir, f"{speclib_filename}_{chunkname}.txt")
+                    convert_and_save_predictions(pred, speclib_chunk_filename, predict_format, flag_fullspectrum)
+
+                    # Evaluate chunk predictions if flag_evaluate is True
+                    if flag_evaluate is True:
+                        eval_dir = os.path.join(predict_lib_dir, f"evaluation_{speclib_filename}_{chunkname}")
+                        evaluate_predictions(pred, chunk_dict, chunk_df, eval_dir)
+            ### End of processing all Arrow chunks ###
+
+            # Combine all chunk files into a single HDF5 file
+            combined_dict = concatenate_hdf5_chunk(predict_chunk_dir, predict_result_file)
+
+            # remove all chunk files after combining, except for the combined file
+            for filename in os.listdir(predict_chunk_dir):
+                file_path = os.path.join(predict_chunk_dir, filename)
+                if file_path != predict_chunk_result_file:  # Keep the combined chunk result file
+                    os.remove(file_path)
+            logging.info(f"[USER] All chunk files removed except for the combined prediction file: {predict_result_file}")
+            
+            # Combine all spectra library chunk files into a single file
+            with open(speclib_file, 'w') as outfile:
+                logging.info(f"Combining predicted spectra library files from: {predict_lib_dir}")
+                for speclib_chunk in os.listdir(predict_lib_dir):
+                    if speclib_chunk.startswith(speclib_filename+"_chunk") and (speclib_chunk.endswith(".msp") or speclib_chunk.endswith(".txt")):
+                        speclib_chunk_path = os.path.join(predict_lib_dir, speclib_chunk)
+                        logging.info(f"Combining file path: {speclib_chunk_path}")
+                        with open(speclib_chunk_path, 'r') as infile:
+                            outfile.write(infile.read())
+                            os.remove(speclib_chunk_path)     # remove the chunk file after combining
+            logging.info(f"[USER] All predicted spectra library files were combined into: {speclib_file}")
+            
+            # Evaluate predictions if flag_evaluate is True
+            if flag_evaluate is True:
+                eval_dir = os.path.join(predict_lib_dir, f"evaluation_{speclib_filename}")
+                evaluate_predictions(combined_dict, combined_dict, predict_df, eval_dir)
+
         else:
-            print('Prediction list without evaluation')
-            predict_dict = tensorize.csv(df, flag_fullspectrum)
+            # Process the entire dataset at once
+            if flag_evaluate is True:
+                logging.info('Prediction list with reference for evaluation')
+                predict_dict = tensorize.hdf5(predict_df, predict_hdf5)
+            else:
+                logging.info('Prediction list without evaluation')
+                predict_dict = tensorize.csv(predict_df, flag_fullspectrum)
+            
+            # Perform predictions on the entire dataset
+            if flag_prosit:
+                pred = prediction_prosit(
+                    predict_batch_dir, predict_chunk_result_file, predict_result_file,
+                    predict_dict, predict_ds, d_spectra, flag_fullspectrum, flag_evaluate,
+                    flag_chunk=False)
+            else:
+                pred = prediction_transformer(
+                    predict_batch_dir, predict_chunk_result_file, predict_result_file,
+                    predict_dict, predict_ds, d_spectra, flag_fullspectrum, flag_evaluate,
+                    flag_chunk=False)
+            convert_and_save_predictions(pred, speclib_file, predict_format, flag_fullspectrum)
+
+            # Evaluate whole predictions if flag_evaluate is True
+            if flag_evaluate is True:
+                evaluate_predictions(pred, predict_dict, predict_df, predict_lib_dir)
     else:
-        pass
-
-    if flag_prosit is True:
-        pred = prediction_prosit(
-                predict_batch_dir, predict_result_file, combined_file,
-                predict_dict, predict_ds, d_spectra, flag_fullspectrum, flag_evaluate,
-                flag_chunk)
-    else:
-        pred = prediction_transformer(
-            predict_batch_dir, predict_result_file, combined_file,
-            predict_dict, predict_ds, d_spectra, flag_fullspectrum, flag_evaluate,
-            flag_chunk)
-
-    if flag_evaluate is True:
-        y_true = torch.tensor(predict_dict['intensities_raw'])
-        y_pred = torch.tensor(pred['intensities_pred'])
-        seq, charge, ce = df['modified_sequence'], df['precursor_charge'], df['collision_energy']
-
-        # calculate prediction metrics
-        metrics = ComputeMetrics_CPU(
-            true=y_true, pred=y_pred, seq=seq, charge=charge, ce=ce)
-        metrics_byrecord = pd.DataFrame(metrics.return_metrics_byrecord())
-
-        # calculate mean of metrics
-        metrics_mean = metrics.return_metrics_mean()
-        metrics_df = pd.DataFrame.from_dict(metrics_mean, orient='index')
-
-        # OPTIONAL: calculate spectral angle
-        spectralangle_df = pd.DataFrame(
-            [{'spectral_angle': mean(pred['spectral_angle'])}]).T
-        metrics_df = pd.concat(
-            [metrics_df, spectralangle_df], ignore_index=False)
-
-        model_name = d_spectra['weights_path'].split('/')[-1]
-        metrics_df.columns = [model_name]
-        metrics_df[model_name] = metrics_df[model_name].astype(float)
-
-        # store metrics in csv file
-        metrics_folder = predict_dir + model_name + '/'
-        os.makedirs(metrics_folder, exist_ok=True)
-        metrics_byrecord.to_csv(metrics_folder + 'metrics_byrecord.csv')
-        metrics_df.to_csv(metrics_folder + 'metrics.csv')
-
-        # plot Precision-Recall curve, ROC curve
-        metrics.plot_PRcurve_micro(metrics_folder)
-        metrics.plot_PRcurve_sample(metrics_folder)
-        metrics.plot_PRcurve_macro(metrics_folder)
-        metrics.plot_ROCcurve_macro(metrics_folder)
-        metrics.plot_ROCcurve_micro(metrics_folder)
-
-    if (predict_format == 'maxquant'):
-        df_pred = maxquant.convert_prediction(pred)
-        maxquant.write(df_pred, predict_dir+'peptidelist_pred.txt')
-    elif (predict_format == 'msp'):
-        df_pred = msp.Converter(pred, predict_dir+'peptidelist_pred.msp',
-                                flag_fullspectrum).convert()
-    else:
-        print("Unknown Formatted Requested.")
-    print("Whole CoSpred Workflow ... COMPLETE!")
-    return df_pred
+        logging.info(f"Prediction CSV file {predict_csv} does not exist. Please provide a valid CSV file.")
+        return 0
+    
+    return 1
 
 
 def main():
@@ -570,14 +797,19 @@ def main():
     predict_dir = constants_location.PREDICT_DIR
     predict_csv = constants_location.PREDICTCSV_PATH
     predict_hdf5 = constants_location.PREDDATA_PATH
-    predict_ds = constants_location.PREDDATASET_PATH     # chunk file path
+    chunk_dir = constants_location.PREDDATASET_PATH     # chunk file path
 
+    # create prediction directory if it does not exist
+    if not os.path.exists(predict_dir):
+        os.makedirs(predict_dir, exist_ok=True)
+    logging.info("Pediction result directory created: {}".format(predict_dir))
+
+    ### Initialize to store model and session ###
     if args.bigru is True:
         d_spectra["graph"] = tf.Graph()
         with d_spectra["graph"].as_default():
             d_spectra["session"] = tf.compat.v1.Session()
-            print("Tensorflow session created successfully.")
-
+            logging.info("Tensorflow session created successfully.")
             with d_spectra["session"].as_default():
                 d_spectra["model"], d_spectra["config"], d_spectra['weights_path'] = model_lib.load(
                     model_dir,
@@ -592,7 +824,7 @@ def main():
         #        d_irt["model"], d_irt["config"] = model.load(constants.MODEL_IRT,
         #                    trained=True)
         #       d_irt["model"].compile(optimizer="adam", loss="mse")
-        print("BiGRU model loaded successfully.")
+        logging.info("[RESULT] BiGRU model was loaded successfully.")
     else:
         d_spectra["model"], d_spectra["config"], d_spectra['weights_path'] = model_lib.load(
             model_dir,
@@ -600,71 +832,80 @@ def main():
             args.bigru,
             args.trained
         )
-        print("Transformer model loaded successfully.")
+        logging.info("Transformer model was loaded successfully.")
+    logging.info('[USER] Loaded weight from: {}'.format(d_spectra['weights_path']))
+    logging.info('[STATUS] MODEL LOADING finished.')
 
-    # create prediction list
-    if not os.path.exists(predict_dir):
-        os.makedirs(predict_dir)
-    print("Pediction result directory created: {}".format(predict_dir))
-
-    if (not os.path.isfile(predict_csv)) or (not os.path.isfile(predict_hdf5)):
-        if args.evaluate is True: 
-            csvfile = constants_location.TESTCSV_PATH
-            test_hdf5 = constants_location.TESTDATA_PATH
-            if (os.path.isfile(csvfile) and os.path.isfile(test_hdf5)):
-                predict_csv = csvfile
-                predict_hdf5 = test_hdf5
-                print("Reference CSV and HDF5 were provided. Move on to prediction.")
+    ### Input preparation ###
+    if args.evaluate is True: 
+        logging.info("[STATUS] EVALUATION MODE: Generating prediction list with reference ...")
+        csvfile = constants_location.TESTCSV_PATH
+        test_hdf5 = constants_location.TESTDATA_PATH
+        usimgffile = constants_location.REFORMAT_TEST_USITITLE_PATH
+        psmfile = constants_location.PSM_PATH
+        if (os.path.exists(csvfile) and os.path.exists(test_hdf5)):
+            predict_csv = csvfile
+            predict_hdf5 = test_hdf5
+            logging.info(f"Reference CSV {csvfile} and HDF5 {test_hdf5} were provided. Move on to prediction ...")
+        elif (os.path.exists(csvfile) and os.path.exists(usimgffile) and os.path.exists(psmfile)):
+            logging.info(f"Reference CSV {csvfile} was provided.")
+            logging.info(f"Generating HDF5 {predict_hdf5} ...")
+            temp_dir = constants_location.TEMP_DIR
+            reformatmgffile = constants_location.REFORMAT_TEST_PATH
+            if args.full is True:
+                # match peptide from PSM with spectra MGF to generate CSV with full spectra bins
+                dbsearch_df = rawfile2hdf_cospred.getPSM(psmfile)
+                # Filter the PSM DataFrame
+                dbsearch_df = rawfile2hdf_cospred.filterPSM(dbsearch_df, csvfile)
+                dataset = rawfile2hdf_cospred.generateHDF5_transformer(
+                        usimgffile, reformatmgffile, dbsearch_df,
+                        predict_csv, None)
+                # transform full spectrum test peptides list to hdf5
+                # # Note: not practical since csv is not ideal for storing 3000 dimension full spectrum 
+                # dataset = rawfile2hdf_cospred.constructDataset_fullspectrum(dataset)
+                io_cospred.to_hdf5(dataset, predict_hdf5)
             else:
-                temp_dir = constants_location.TEMP_DIR
-                usimgffile = constants_location.REFORMAT_TEST_USITITLE_PATH
-                reformatmgffile = constants_location.REFORMAT_TEST_PATH
-                psmfile = constants_location.PSM_PATH
-                if args.full is True:
-                    # match peptide from PSM with spectra MGF to generate CSV with full spectra bins
-                    dbsearch_df = rawfile2hdf_cospred.getPSM(psmfile)
-                    dataset = rawfile2hdf_cospred.generateHDF5_transformer(
-                            usimgffile, reformatmgffile, dbsearch_df,
-                            predict_csv, None)
-                    # transform full spectrum test peptides list to hdf5
-                    # # Note: not practical since csv is not ideal for storing 3000 dimension full spectrum 
-                    # dataset = rawfile2hdf_cospred.constructDataset_fullspectrum(csvfile, predict_csv)
-                    io_cospred.to_hdf5(dataset, predict_hdf5)
-                else:
-                    # if b,y ion prediction, annotation is required
-                    annotation_results = annotateMGF_wSeq(
-                        usimgffile, csvfile, temp_dir)
-                    # match peptide from PSM with spectra MGF
-                    generateCSV_wSeq(usimgffile, reformatmgffile, csvfile, annotation_results,
-                                    predict_csv, temp_dir)
-                    # transform byion test peptides list to hdf5
-                    dataset = rawfile2hdf_prosit.constructDataset_byion(predict_csv)
-                    io_cospred.to_hdf5(dataset, predict_hdf5)
+                # if b,y ion prediction, annotation is required
+                annotation_results = annotateMGF_wSeq(
+                    usimgffile, csvfile, temp_dir)
+                # match peptide from PSM with spectra MGF
+                generateCSV_wSeq(usimgffile, reformatmgffile, csvfile, annotation_results,
+                                predict_csv, temp_dir)
+                # transform byion test peptides list to hdf5
+                dataset = rawfile2hdf_prosit.constructDataset_byion(predict_csv)
+                io_cospred.to_hdf5(dataset, predict_hdf5)
         else:
-            csvfile = constants_location.PREDICT_ORIGINAL
-            # filter prediction list to remove non-amino acid and transform to dataset
-            dataset = io_cospred.constructDataset_frompep(csvfile, predict_csv)
-            io_cospred.to_hdf5(dataset, predict_hdf5)
-
-    # check generated hdf
-    io_cospred.read_hdf5(predict_hdf5)
-    print('Generating HDF5 ... DONE!')
-
+            logging.error(f"Not sufficient inputs were found. Please provide valid files.")
+            return 0
+    else:
+        logging.info("[STATUS] PREDICTION MODE: Generating prediction list without reference.")
+        csvfile = constants_location.PREDICT_ORIGINAL
+        if (os.path.exists(csvfile)):
+            logging.info(f"Reference CSV {csvfile} was provided. Move on to prediction.")
+            # filter prediction list to remove non-amino acid and transform to dictionary
+            predict_dict = io_cospred.constructDataset_frompep(csvfile, predict_csv)
+            # save dataset to hdf5 for prediction usage
+            io_cospred.to_hdf5(predict_dict, predict_hdf5)
+        else:
+            logging.error(f"Reference CSV {csvfile} was not found. Please provide a valid file.")
+            return 0
+        
     # convert hdf5 to hugginface Dataset (Three array for predication only)
-    predict_ds = io_cospred.genDataset(predict_hdf5, predict_ds, args.chunk)
+    predict_ds = io_cospred.genDataset(predict_hdf5, chunk_dir, args.chunk)
 
-    # prediction process
-    print('MODEL LOADING finished. Start PREDICTION...')
+    ### prediction process ###
+    logging.info('[STATUS] INPUT PREPARATION finished. Start PREDICTION...')
     
     if predict_format == 'maxquant' or predict_format == 'msp':
         # Maxquant output
         predict(predict_csv, predict_dir, predict_format, predict_hdf5, predict_ds,
                 args.bigru, args.full, args.evaluate, args.chunk)
     else:
-        print('PREDICT_FORMAT could only be maxquant or msp')
+        logging.error('Predicted Spectra library format could only be maxquant or msp')
 
+    logging.info("[STATUS] Whole CoSpred Workflow ... COMPLETE!")
     # disply elapsed time
-    print('Elapsed time: {} seconds'.format(time.time()-start_time))
+    logging.info('[STATUS] Elapsed time: {} seconds'.format(time.time()-start_time))
     
 if __name__ == "__main__":
     main()

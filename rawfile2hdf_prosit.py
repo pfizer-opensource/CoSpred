@@ -1,3 +1,4 @@
+import logging
 from pyteomics import mzml, mgf
 import numpy as np
 import spectrum_utils.spectrum as sus
@@ -9,8 +10,6 @@ from argparse import ArgumentParser
 import random
 import copy
 import functools
-# import ast
-import h5py
 
 from preprocess import utils
 import io_cospred
@@ -21,7 +20,6 @@ from params.constants import (
     CHARGES,
     MAX_SEQUENCE,
     ALPHABET,
-    AMINO_ACID,
     MAX_ION,
     NLOSSES,
     ION_TYPES,
@@ -29,10 +27,32 @@ from params.constants import (
     METHODS,
 )
 
+import warnings
+# Suppress warning message of tensorflow compatibility
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+os.environ['TF_CPP_MIN_VLOG_LEVEL'] = '3'
+warnings.filterwarnings("ignore")
+
+# Configure logging
+log_file_prep = os.path.join(constants_location.PREDICT_DIR, "cospred_prep.log")
+logging.basicConfig(
+    filename=log_file_prep,
+    filemode="w",  # Overwrite the log file each time the script runs
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    level=logging.INFO  # Set the logging level (INFO, DEBUG, WARNING, ERROR, CRITICAL)
+)
+
+# Optionally, log to both file and console
+console = logging.StreamHandler()
+console.setLevel(logging.INFO)
+formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+console.setFormatter(formatter)
+logging.getLogger().addHandler(console)
+
 COL_SEP = "\t"
 
 
-def get_float(vals, dtype=float):
+def get_float(vals, dtype=np.float16):
     a = np.array(vals).astype(dtype)
     return a.reshape([len(vals), 1])
 
@@ -47,7 +67,7 @@ def get_boolean(vals, dtype=bool):
     return a.reshape([len(vals), 1])
 
 
-def get_number(vals, dtype=int):
+def get_number(vals, dtype='i1'):
     a = np.array(vals).astype(dtype)
     return a.reshape([len(vals), 1])
 
@@ -219,7 +239,7 @@ def splitMGF(mgffile, trainsetfile, testsetfile, n_test=5000):
         if i in test_index:
             spectra_test.append(spectrum)
             test_index_list.append(test_index.pop(0))
-            print('spectrum index {} in testset'.format(i))
+            logging.info('spectrum index {} in testset'.format(i))
         else:
             spectra_train.append(spectrum)
         i += 1
@@ -341,7 +361,7 @@ def reformatMGF(mgffile, mzmlfile, dbsearch_df, reformatmgffile, temp_dir):
     f = mzml.MzML(mzmlfile)
 
     # Rewrite TITLE for the MGF
-    print('Creating temp MGF file with new TITLE...')
+    logging.info('Creating temp MGF file with new TITLE...')
 
     spectra_origin = mgf.read(mgffile)
     spectra_temp = []
@@ -366,7 +386,7 @@ def reformatMGF(mgffile, mzmlfile, dbsearch_df, reformatmgffile, temp_dir):
     mgf.write(spectra_temp, output=reformatmgffile_temp)
     spectra_origin.close()
 
-    print('Temp MGF file with new TITLE was created!')
+    logging.info('Temp MGF file with new TITLE was created!')
 
     # Add SEQ and CE to the reformatted MGF
     spectra = mgf.read(reformatmgffile_temp)
@@ -375,7 +395,7 @@ def reformatMGF(mgffile, mzmlfile, dbsearch_df, reformatmgffile, temp_dir):
     spectra_new = []
     for index, row in dbsearch_df.iterrows():
         if (index % 100 == 0):
-            print('Reformatting MGF Progress: {}%'.format(
+            logging.info('Reformatting MGF Progress: {}%'.format(
                 index/dbsearch_df.shape[0]*100))
         try:
             # retrieve spectrum of PSM from MGF and MZML
@@ -416,7 +436,7 @@ def reformatMGF(mgffile, mzmlfile, dbsearch_df, reformatmgffile, temp_dir):
     if os.path.exists(reformatmgffile_temp):
         os.remove(reformatmgffile_temp)
     else:
-        print("The temp reformatted MGF file does not exist")
+        logging.error("The temp reformatted MGF file does not exist")
 
     return spectra_new
 
@@ -436,7 +456,7 @@ def annotateMGF(reformatmgffile, dbsearch_df, temp_dir):
 
     for index, row in dbsearch_df.iterrows():
         if (index % 100 == 0):
-            print('MS2 Annotation Progress: {}%'.format(
+            logging.info('MS2 Annotation Progress: {}%'.format(
                 index/dbsearch_df.shape[0]*100))
 
         try:
@@ -516,7 +536,7 @@ def generateCSV(usimgffile, reformatmgffile, dbsearch_df, annotation_results, cs
     mzs_df = []
     for index, row in dbsearch_df.iterrows():
         if (index % 100 == 0):
-            print('Generating CSV Progress: {}%'.format(
+            logging.info('Generating CSV Progress: {}%'.format(
                 index/dbsearch_df.shape[0]*100))
 
         try:
@@ -563,7 +583,7 @@ def generateCSV(usimgffile, reformatmgffile, dbsearch_df, annotation_results, cs
         dataset = dataset[~dataset['proforma'].isin(constrast_dataset['proforma'])]
     dataset.to_csv(csvfile, index=False)
 
-    print('Generating CSV ... DONE!')
+    logging.info('[STATUS] Generating peptide list CSV ... DONE!')
 
     modifyMGFtitle(usimgffile, reformatmgffile, temp_dir)
     return dataset
@@ -572,7 +592,7 @@ def generateCSV(usimgffile, reformatmgffile, dbsearch_df, annotation_results, cs
 def modifyMGFtitle(usimgffile, reformatmgffile, temp_dir):
     # Rewrite TITLE for the MGF
     if os.path.exists(usimgffile):
-        print('Creating temp MGF file with new TITLE...')
+        logging.info('Creating temp MGF file with new TITLE...')
 
         spectra_origin = mgf.read(usimgffile)
         spectra_new = []
@@ -588,9 +608,9 @@ def modifyMGFtitle(usimgffile, reformatmgffile, temp_dir):
         mgf.write(spectra_new, output=reformatmgffile)
         spectra_origin.close()
     else:
-        print("The reformatted MGF file does not exist")
+        logging.info("The reformatted MGF file does not exist")
 
-    print('MGF file with new TITLE was created!')
+    logging.info('MGF file with new TITLE was created!')
 
 
 def get_PrositArray(df, vectype):
@@ -645,7 +665,7 @@ def constructPrositVec(df, vectype):
 
 def constructDataset_byion(csvfile):
     df = pd.read_csv(csvfile, sep=',', index_col=False)
-
+    
     assert "modified_sequence" in df.columns
     assert "collision_energy" in df.columns
     assert "precursor_charge" in df.columns
@@ -657,21 +677,28 @@ def constructDataset_byion(csvfile):
 
     # construct Dataset based on Prosit definition
     dataset = {
-        "collision_energy": get_float(df['collision_energy']),
+        "collision_energy": df['collision_energy'].astype(np.float16),
         "collision_energy_aligned": get_float(df['collision_energy']),
         "collision_energy_aligned_normed": get_float(df['collision_energy']/100.0),
         "intensities_raw": constructPrositVec(df, 'intensities'),
         "masses_pred": constructPrositVec(df, vectype='masses'),
         "masses_raw": constructPrositVec(df, vectype='masses'),
-        "method": get_method_onehot(df['method']).astype(int),
-        "precursor_charge_onehot": get_precursor_charge_onehot(df['precursor_charge']).astype(int),
-        "rawfile": df['raw_file'].astype('S32'),
+        "method": get_method_onehot(df['method']).astype(np.uint8),
+        "precursor_charge": df['precursor_charge'].astype(np.uint8),
+        "precursor_charge_onehot": get_precursor_charge_onehot(df['precursor_charge']).astype(np.uint8),
+        "raw_file": df['raw_file'].astype('S32'),
         "reverse": get_boolean(df['reverse']),
         "scan_number": get_number(df['scan_number']),
         "score": get_float(df['score']),
-        "sequence_integer": get_sequence_integer(df['modified_sequence']).astype(int),
-        "sequence_onehot": get_sequence_onehot(df['modified_sequence']).astype(int),
+        "modified_sequence": df['modified_sequence'].astype('S32'),
+        "sequence_integer": get_sequence_integer(df['modified_sequence']).astype(np.uint8),
+        "sequence_onehot": get_sequence_onehot(df['modified_sequence']).astype(np.uint8),
     }
+
+    # # Assuming `dictionary` is your dictionary
+    # logging.info("Dictionary after constructDataset_byion:")
+    # for key, value in dataset.items():
+    #     logging.info(f"Key: {key}, Data Type: {type(dataset[key])}, Shape: {dataset[key].shape}, Length: {len(value)}, Approx. Size: {sum(sys.getsizeof(v) for v in value) / (1024 * 1024):.2f} MB")
 
     return dataset
 
@@ -701,6 +728,8 @@ def main():
     mzmlfile = constants_location.MZML_PATH
     psmfile = constants_location.PSM_PATH
 
+    if (workflow == 'split'):
+        pass
     if (workflow == 'train'):
         usimgffile = constants_location.REFORMAT_TRAIN_USITITLE_PATH
         reformatmgffile = constants_location.REFORMAT_TRAIN_PATH
@@ -719,22 +748,23 @@ def main():
         predict_csv = constants_location.PREDICTCSV_PATH
         hdf5file = constants_location.PREDDATA_PATH
     else:
-        print("Unknown workflow choice.")
+        logging.error("Unknown workflow choice.")
 
     if not os.path.exists(temp_dir):
         os.makedirs(temp_dir)
 
     # get psm result
     if (workflow != 'predict'):
-        dbsearch = getPSM(psmfile)
-        dbsearch_df = dbsearch
+        dbsearch_df = getPSM(psmfile)
 
     if (workflow == 'split'):
         # hold out N records as testset
+        logging.info('[INFO] Workflow: Splitting the dataset ...')        
         splitMGF(mgffile, trainsetfile, testsetfile, n_test=5000)
-        print('Splitting train vs test set ... DONE!')
+        logging.info('[STATUS] Splitting train vs test set ... DONE!')
     # reformat the Spectra
     elif (workflow == 'train' or workflow == 'test'):
+        logging.info(f'[INFO] Workflow: Annotating {workflow} set ...')        
         if not os.path.isfile(usimgffile):
             reformatMGF(datasetfile, mzmlfile,
                         dbsearch_df, usimgffile, temp_dir)
@@ -749,23 +779,25 @@ def main():
             elif (workflow == 'test'):
                 dataset = generateCSV(usimgffile, reformatmgffile, dbsearch_df, annotation_results,
                                       csvfile, temp_dir, traincsvfile)
-        # transform to hdf5
-        dataset = constructDataset_byion(csvfile)
-        io_cospred.to_hdf5(dataset, hdf5file)
-        print('Generating HDF5 ... DONE!')
-        # reformat the Spectra
+            # transform to hdf5
+            dataset = constructDataset_byion(csvfile)
+            io_cospred.to_hdf5(dataset, hdf5file)
+            logging.info(f'[STATUS] Generating {workflow} set ... DONE!')
+        else:
+            logging.error(f'[STATUS] {workflow} set is already existed')
     elif (workflow == 'predict'):
+        logging.info('[INFO] Workflow: Spectrum prediction ...')        
         if not os.path.isfile(csvfile):
-            print('No peptide list available!')
+            logging.error('No peptide list available!')
         else:
             # transform to hdf5
             dataset = io_cospred.constructDataset_frompep(csvfile, predict_csv)
             io_cospred.to_hdf5(dataset, hdf5file)
             # check generated hdf
             io_cospred.read_hdf5(hdf5file)
-            print('Generating HDF5 ... DONE!')
+            logging.info(f'[STATUS] Generating {workflow} set ... DONE!')
     else:
-        print("Unknown workflow choice.")
+        logging.error("Unknown workflow choice.")
 
 
 if __name__ == "__main__":

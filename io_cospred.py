@@ -1,3 +1,4 @@
+import sys
 import numpy as np
 import h5py
 import pandas as pd
@@ -6,7 +7,7 @@ import os
 import shutil
 import re
 
-from prosit_model import utils
+from prosit_model import utils, sanitize, tensorize
 import params.constants as constants
 from params.constants import (
     ALPHABET,
@@ -16,7 +17,7 @@ from params.constants import (
 )
 
 
-def get_float(vals, dtype=float):
+def get_numbers(vals, dtype=np.float16):
     a = np.array(vals).astype(dtype)
     return a.reshape([len(vals), 1])
 
@@ -31,7 +32,7 @@ def get_precursor_charge_onehot(charges):
     return array
 
 
-def get_sequence_integer(sequences):
+def get_sequence_integer(sequences, dtype='i1'):
     array = np.zeros([len(sequences), MAX_SEQUENCE])
     for i, sequence in enumerate(sequences):
         try:
@@ -53,6 +54,34 @@ def get_array(tensor, keys):
     return [tensor[key] for key in keys]
 
 
+def fixEncoding(df, column_name):
+    if column_name not in df.columns:
+        raise KeyError(f"Column '{column_name}' is missing from the DataFrame.")
+    if isinstance(df[column_name].iloc[0], bytes):
+        # print(f"Decoding '{column_name}' from bytes to string...")
+        df[column_name] = df[column_name].apply(lambda x: x.decode('utf-8') if isinstance(x, bytes) else x)
+    return df
+
+
+def read_hdf5_to_dict(file_path):
+    """
+    Read an HDF5 file and convert its datasets into a Python dictionary.
+
+    Args:
+        file_path (str): Path to the HDF5 file.
+
+    Returns:
+        dict: A dictionary containing the datasets from the HDF5 file.
+    """
+    data_dict = {}
+    with h5py.File(file_path, 'r') as f:
+        for key in f.keys():
+            data = f[key][:]
+            data_dict[key] = np.array(data)  # Convert to NumPy array
+            # print(f"Key: {key}, Data Type: {type(data_dict[key])}, Shape: {data_dict[key].shape}")
+    return data_dict
+
+
 def read_hdf5(path, n_samples=None):
     # Get a list of the keys for the datasets
     with h5py.File(path, 'r') as f:
@@ -60,7 +89,7 @@ def read_hdf5(path, n_samples=None):
         dataset_list = list(f.keys())
         for dset_name in dataset_list:
             print(dset_name)
-            print(f[dset_name][:3])
+            # print(f[dset_name][:3])
         f.close()
     return dataset_list
 
@@ -70,7 +99,8 @@ def to_hdf5(dictionary, path):
 
     with h5py.File(path, "w") as f:
         for key, data in dictionary.items():
-            if (data.dtype == 'object'):
+            if data.dtype.kind == 'O':  # Object type
+                data = np.array(data, dtype='S')  # Convert to fixed-length strings
                 f.create_dataset(key, data=data, dtype=dt, compression="gzip")
             else:
                 f.create_dataset(
@@ -90,11 +120,9 @@ def from_hdf5(file_path, model_config, tensorformat='torch'):
     for feature in dataset_list:
         dataset[feature] = np.array(f[feature])
     f.close()
-    print("Construct dictrionary ... DONE")
 
     # construct hugginface dataset from dictionary
     dataset = Dataset.from_dict(dataset)
-    print("Construct Dataset ... DONE")
 
     # fix random seed for reproducibility
     seed = 42
@@ -222,6 +250,32 @@ def to_arrow(dataset, chunk_path):
         dset.save_to_disk(chunkfile)
 
 
+def dict_to_arrow_chunks(data_dict, chunk_path):
+    """
+    Convert a dictionary to Arrow chunks and save them to disk.
+
+    Args:
+        data_dict (dict): The dictionary to convert.
+        chunk_path (str): The directory to save the Arrow chunks.
+
+    Returns:
+        None
+    """
+    # Ensure the output directory exists
+    os.makedirs(chunk_path, exist_ok=True)
+    chunksize = constants.CHUNKSIZE
+
+    # Convert the dictionary to a Hugging Face Dataset
+    dataset = Dataset.from_dict(data_dict)
+
+    # Split the dataset into chunks
+    for i in range(0, len(dataset), chunksize):
+        chunk = dataset.select(range(i, min(i + chunksize, len(dataset))))
+        chunk_file = os.path.join(chunk_path, f"chunk_{i // chunksize}")
+        chunk.save_to_disk(chunk_file)
+        # print(f"Saved chunk {i // chunksize} to {chunk_file}")
+
+
 def genDataset(file_path, chunk_path, flag_chunk):
     if flag_chunk is True:
         # BEST METHOD: Read arrow chunk files into dataset
@@ -230,7 +284,7 @@ def genDataset(file_path, chunk_path, flag_chunk):
         else:
             try:
                 shutil.rmtree(chunk_path)
-                print(f"Folder '{chunk_path}' and its contents deleted successfully.")
+                # print(f"Folder '{chunk_path}' and its contents deleted successfully.")
             except OSError as e:
                 print(f"Error deleting folder '{chunk_path}': {e}")
        
@@ -238,19 +292,19 @@ def genDataset(file_path, chunk_path, flag_chunk):
         f = h5py.File(file_path, 'r')
         # Assemble into a dictionary
         dataset = dict()
-        for feature in set(list(f.keys())):
-            dataset[feature] = np.array(f[feature])
-        f.close()
+        # for feature in set(list(f.keys())):
+        #     dataset[feature] = np.array(f[feature])
+        for feature in set(f.keys()):
+            dataset[feature] = f[feature]
         # chunking dataset
-        to_arrow(dataset, chunk_path)
-        print("Construct chunk files ... DONE")
+        # to_arrow(dataset, chunk_path)
+        dict_to_arrow_chunks(dataset, chunk_path)
+        f.close()
 
         dsets = []
         for filename in os.listdir(chunk_path):
-            print(filename)
             if (re.search('chunk_', filename) is not None):
                 chunkfile = os.path.join(chunk_path, filename)
-                print(chunkfile)
                 dset = load_from_disk(chunkfile)
                 dsets.append(dset)
         dataset = concatenate_datasets(dsets)
@@ -262,12 +316,39 @@ def genDataset(file_path, chunk_path, flag_chunk):
         for feature in set(list(f.keys())):
             dataset[feature] = np.array(f[feature])
         f.close()
-        print("Construct dictrionary ... DONE")
 
         # construct hugginface dataset from dictionary
         dataset = Dataset.from_dict(dataset)
-    print("Construct Dataset ... DONE")
     return dataset
+
+
+def arrow_chunk_to_hdf5(chunkfile, hdf5_file):
+    """
+    Convert an Arrow chunk file to HDF5 format.
+
+    Args:
+        chunkfile (str): Path to the Arrow chunk file.
+        hdf5_file (str): Path to save the HDF5 file.
+
+    Returns:
+        None
+    """
+    # Step 1: Load the Arrow chunk file
+    dset = load_from_disk(chunkfile)
+
+    # Step 2: Convert the Arrow dataset to a dictionary
+    chunk_dict = {column: dset[column] for column in dset.column_names}
+
+    # Step 3: Save the dictionary to HDF5
+    with h5py.File(hdf5_file, "w") as h5f:
+        for key, value in chunk_dict.items():
+            # Convert lists to NumPy arrays if necessary, fix the 1-dimension as the length of the list
+            if isinstance(value, list):
+                value = np.array(value)
+                # Fix the first dimension as the length of the list
+                value = value.reshape(len(value), -1) if value.ndim == 1 else value
+            # Save the dataset to HDF5
+            h5f.create_dataset(key, data=value)
 
 
 def from_arrow(file_path, model_config, n_samples=None):
@@ -322,11 +403,15 @@ def sanitizePeptide(peptide_df, predict_csv):
 
     # get overlap of AMINO_ACID and ALPHABET
     overlap_keys = set(AMINO_ACID.keys()).intersection(ALPHABET.keys())
-    print("overlap amino acids: ", overlap_keys)
+    # print("overlap amino acids: ", overlap_keys)
 
     # remove the rows when modified_sequence has letter not in AMINO_ACID and ALPHABET
     peptide_df = peptide_df[peptide_df['modified_sequence'].str.contains(
         '[^' + ''.join(overlap_keys) + ']', na=False) == False]
+    
+    # Ensure 'modified_sequence' is decoded if it's in bytes
+    if isinstance(peptide_df['modified_sequence'].iloc[0], bytes):
+        peptide_df['modified_sequence'] = peptide_df['modified_sequence'].apply(lambda x: x.decode('utf-8') if isinstance(x, bytes) else x)
     
     # write a csv file
     peptide_df.to_csv(predict_csv, index=False)
@@ -339,11 +424,53 @@ def constructDataset_frompep(csvfile, predict_csv):
 
     df = sanitizePeptide(df, predict_csv)
 
-    # construct Dataset based on Prosit definition
     dataset = {
-        "collision_energy_aligned_normed": get_float(df['collision_energy']/100.0),
-        "precursor_charge_onehot": get_precursor_charge_onehot(df['precursor_charge']).astype(int),
-        "sequence_integer": get_sequence_integer(df['modified_sequence']).astype(int),
+        "collision_energy": df['collision_energy'].astype(np.uint8),
+        "collision_energy_aligned_normed": get_numbers(df['collision_energy']/100.0, dtype=np.float16),
+        "precursor_charge":df['precursor_charge'].astype(np.uint8),
+        "precursor_charge_onehot": get_precursor_charge_onehot(df['precursor_charge']).astype(np.uint8),
+        "modified_sequence": df['modified_sequence'].astype(str),
+        "sequence_integer": get_sequence_integer(df['modified_sequence']).astype(np.uint8),
     }
 
     return dataset
+
+def remove_keys_with_2darray(chunk_dict):
+    keys_to_remove = []
+    for key, value in chunk_dict.items():
+        if isinstance(value, np.ndarray) and value.ndim > 1 and value.shape[1] > 1:
+            keys_to_remove.append(key)
+    for key in keys_to_remove:
+        del chunk_dict[key]
+    
+    # flatten to 1d array in chunk_dict
+    for key, value in chunk_dict.items():
+        if isinstance(value, np.ndarray) and value.ndim > 1:
+            # print(f"Flattening multi-dimensional array for key: {key}")
+            chunk_dict[key] = value.flatten()
+    return chunk_dict
+
+
+def print_combined_data_sizes(combined_data):
+    """
+    Print the size of each key in the combined_data dictionary or Dataset.
+
+    Args:
+        combined_data (dict or Dataset): Combined data to inspect.
+    """
+    print("Combined Prediction Data Sizes:")
+    if isinstance(combined_data, dict):
+        print(f"Dictionary contains {len(combined_data)} keys.")
+        for key, value in combined_data.items():
+            if isinstance(value, np.ndarray):
+                print(f"Key: {key}, Shape: {value.shape}, Size: {value.nbytes / (1024 * 1024):.2f} MB")
+            elif isinstance(value, list):
+                print(f"Key: {key}, Length: {len(value)}, Approx. Size: {sum(sys.getsizeof(v) for v in value) / (1024 * 1024):.2f} MB")
+            else:
+                print(f"Key: {key}, Type: {type(value)}, Size: {sys.getsizeof(value) / (1024 * 1024):.2f} MB")
+    elif isinstance(combined_data, Dataset):
+        print(f"Dataset contains {len(combined_data)} rows.")
+        for column in combined_data.column_names:
+            print(f"Column: {column}, Length: {len(combined_data[column])}")
+    else:
+        print("Unsupported data type.")

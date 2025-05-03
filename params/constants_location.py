@@ -35,14 +35,20 @@ EXAMPLE_DIR = BASE_PATH + "examples/"
 
 # prediction
 PREDICT_FORMAT = 'msp'
-PREDICT_ORIGINAL = DATA_DIR + "peptides.csv"
+PREDICT_ORIGINAL = DATA_DIR + "peptidelist_test.csv"
 PREDICTCSV_PATH = DATA_DIR + "peptidelist_predict.csv"
 PREDDATA_PATH = DATA_DIR + "predict.hdf5"
 PREDDATASET_PATH = DATA_DIR + "predict_arrow/"
 REFERENCE_SPECTRA = REFORMAT_TEST_PATH
 PREDICT_DIR = BASE_PATH + "prediction/"
-PREDICT_BATCH_DIR = PREDICT_DIR + "predictions_batches/"
-PREDICT_RESULT_FILE = PREDICT_BATCH_DIR + "predictions_result.h5"
-PREDICT_COMBINED_FILE = PREDICT_BATCH_DIR + "combined_result.h5"
+PREDICT_HDF5_DIR = PREDICT_DIR + "hdf5/"
+PREDICT_BATCH_DIR = PREDICT_DIR + "prediction_batches/"
+PREDICT_BATCH_RESULT_FILE = PREDICT_BATCH_DIR + "prediction_batch_combined.h5"
+PREDICT_BATCH_COMBINED_FILE = PREDICT_BATCH_DIR + "combined_batch_result.h5"
+PREDICT_CHUNK_DIR = PREDICT_DIR + "prediction_chunks/"
+PREDICT_CHUNK_RESULT_FILE = PREDICT_CHUNK_DIR + "prediction_chunk_combined.h5"
+PREDICT_RESULT_FILE = PREDICT_DIR + "spectrum_prediction_result.h5"
+PREDICT_LIB_DIR = PREDICT_DIR + "prediction_library/"
+PREDICT_LIB_FILENAME = "speclib_prediction"
 
 PLOT_DIR = PREDICT_DIR + "plot/"

@@ -2,13 +2,9 @@ import collections
 import numpy as np
 import h5py
 
-# import utils
-# import match
-# import annotate
 from prosit_model import sanitize, annotate, match, utils
-# import constants
 from params.constants import (
-    SPECTRA_DIMENSION, BIN_MAXMZ, BIN_SIZE,
+    BIN_MAXMZ, BIN_SIZE,
     CHARGES,
     MAX_SEQUENCE,
     ALPHABET,
@@ -35,7 +31,7 @@ def stack(queue):
     return stacked
 
 
-def get_numbers(vals, dtype=float):
+def get_numbers(vals, dtype=np.float16):
     a = np.array(vals).astype(dtype)
     return a.reshape([len(vals), 1])
 
@@ -47,12 +43,15 @@ def get_precursor_charge_onehot(charges):
     return array
 
 
-def get_sequence_integer(sequences):
-    array = np.zeros([len(sequences), MAX_SEQUENCE], dtype=int)
+def get_sequence_integer(sequences, dtype='i1'):
+    array = np.zeros([len(sequences), MAX_SEQUENCE])
     for i, sequence in enumerate(sequences):
-        for j, s in enumerate(utils.peptide_parser(sequence)):
-            # Needs to double check
+        if len(sequence) > MAX_SEQUENCE:
+            pass
+        else:
+            for j, s in enumerate(utils.peptide_parser(sequence)):
                 array[i, j] = ALPHABET[s]
+    array = array.astype(dtype)
     return array
 
 
@@ -96,7 +95,6 @@ def csv(df, flag_fullspectrum=False):
         "collision_energy_aligned_normed": get_numbers(df.collision_energy) / 100.0,
         "sequence_integer": get_sequence_integer(df.modified_sequence),
         "precursor_charge_onehot": get_precursor_charge_onehot(df.precursor_charge),
-        # "masses_pred": get_mz_applied(df),
     }
 
     if flag_fullspectrum is False:
@@ -110,17 +108,11 @@ def csv(df, flag_fullspectrum=False):
         masses_pred = sanitize.mask_outofcharge(masses_pred, df.precursor_charge)
         masses_pred = sanitize.reshape_flat(masses_pred)
     else:
-        vector_mass = np.arange(0, BIN_MAXMZ, BIN_SIZE, dtype=np.float32)
+        vector_mass = np.arange(0, BIN_MAXMZ, BIN_SIZE, dtype=np.float16)
         masses_pred = np.tile(vector_mass, (data['sequence_integer'].shape[0], 1))
-        # masses_pred = np.zeros((data['sequence_integer'].shape[0], SPECTRA_DIMENSION))
 
-    # with h5py.File(hdf5file, 'r') as f:
-    #     # print(f.keys())
-    #     data["masses_pred"] = masses_pred
-    #     data["intensities_raw"] = np.array(f['intensities_raw'])
-
-    data["masses_pred"] = masses_pred
-    data["intensities_raw"] = np.zeros(masses_pred.shape)
+    data["masses_pred"] = masses_pred.astype(np.float16)
+    data["intensities_raw"] = np.zeros(masses_pred.shape).astype(np.float16)
 
     return data
 
@@ -131,15 +123,14 @@ def hdf5(df, hdf5file):
     assert "collision_energy" in df.columns
     assert "precursor_charge" in df.columns
     data = {
-        "collision_energy_aligned_normed": get_numbers(df.collision_energy) / 100.0,
-        "sequence_integer": get_sequence_integer(df.modified_sequence),
-        "precursor_charge_onehot": get_precursor_charge_onehot(df.precursor_charge),
-        # "masses_pred": get_mz_applied(df),
+        "collision_energy_aligned_normed": get_numbers(df['collision_energy']/100.0, dtype=np.float16),
+        "sequence_integer": get_sequence_integer(df['modified_sequence']).astype(np.uint8),
+        "precursor_charge_onehot": get_precursor_charge_onehot(df['precursor_charge']).astype(np.uint8),
     }
     with h5py.File(hdf5file, 'r') as f:
         # print(f.keys())
-        data["masses_pred"] = np.array(f['masses_pred'])
-        data["intensities_raw"] = np.array(f['intensities_raw'])
-
+        data["masses_pred"] = np.array(f['masses_pred']).astype(np.float16)
+        data["intensities_raw"] = np.array(f['intensities_raw']).astype(np.float16)
+    
     return data
 

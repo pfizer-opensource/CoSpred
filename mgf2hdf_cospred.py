@@ -1,3 +1,4 @@
+import logging
 import re
 from pyteomics import mgf
 import numpy as np
@@ -21,6 +22,27 @@ from params.constants import (
 from preprocess import utils
 from prosit_model import io_local
 
+import warnings
+# Suppress warning message of tensorflow compatibility
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+os.environ['TF_CPP_MIN_VLOG_LEVEL'] = '3'
+warnings.filterwarnings("ignore")
+
+# Configure logging
+log_file_prep = os.path.join(constants_location.PREDICT_DIR, "cospred_prep.log")
+logging.basicConfig(
+    filename=log_file_prep,
+    filemode="w",  # Overwrite the log file each time the script runs
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    level=logging.INFO  # Set the logging level (INFO, DEBUG, WARNING, ERROR, CRITICAL)
+)
+
+# Optionally, log to both file and console
+console = logging.StreamHandler()
+console.setLevel(logging.INFO)
+formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+console.setFormatter(formatter)
+logging.getLogger().addHandler(console)
 
 def peptide_parser(p):
     p = p.replace("_", "")
@@ -40,7 +62,6 @@ def peptide_parser(p):
 
 
 def get_sequence_integer(sequences, dtype='i1'):
-    start_time = time.time()
     array = np.zeros([len(sequences), MAX_SEQUENCE])
     for i, sequence in enumerate(sequences):
         if len(sequence) > MAX_SEQUENCE:
@@ -49,15 +70,12 @@ def get_sequence_integer(sequences, dtype='i1'):
             for j, s in enumerate(utils.peptide_parser(sequence)):
                 array[i, j] = ALPHABET[s]
     array = array.astype(dtype)
-    print('sequence interger: ' + str(time.time()-start_time))
     return array
 
 
-def get_float(vals, dtype=np.float32):
-    start_time = time.time()
+def get_float(vals, dtype=np.float16):
     a = np.array(vals).astype(dtype)
     a = a.reshape([len(vals), 1])
-    print('get float: ' + str(time.time()-start_time))
     return a
 
 
@@ -67,23 +85,18 @@ def get_boolean(vals, dtype=bool):
 
 
 def get_number(vals, dtype='i1'):
-    start_time = time.time()
     a = np.array(vals).astype(dtype)
     a = a.reshape([len(vals), 1])
-    print('get number: ' + str(time.time()-start_time))
     return a
 
 
-def get_2darray(vals, dtype=np.float32):
-    start_time = time.time()
+def get_2darray(vals, dtype=np.float16):
     a = np.array(vals.values.tolist())
     a = a.astype(dtype)
-    print('2d array: ' + str(time.time()-start_time))
     return a
 
 
 def get_precursor_charge_onehot(charges, dtype='i1'):
-    start_time = time.time()
     array = np.zeros([len(charges), max(CHARGES)])
     for i, precursor_charge in enumerate(charges):
         if precursor_charge > max(CHARGES):
@@ -91,20 +104,20 @@ def get_precursor_charge_onehot(charges, dtype='i1'):
         else:
             array[i, int(precursor_charge) - 1] = 1
     array = array.astype(dtype)
-    print('onehot assignment charge: ' + str(time.time()-start_time))
     return array
 
 
-def get_method_onehot(methods):
+def get_method_onehot(methods, dtype=np.uint8):
     array = np.zeros([len(methods), len(METHODS)])
     for i, method in enumerate(methods):
         for j, methodstype in enumerate(METHODS):
             if method == methodstype:
                 array[i, j] = int(1)
+    array = array.astype(dtype)
     return array
 
 
-def get_sequence_onehot(sequences):
+def get_sequence_onehot(sequences, dtype=np.uint8):
     array = np.zeros([len(sequences), MAX_SEQUENCE, len(ALPHABET)+1])
     for i, sequence in enumerate(sequences):
         j = 0
@@ -115,13 +128,14 @@ def get_sequence_onehot(sequences):
         while j < MAX_SEQUENCE:
             array[i, j, 0] = int(1)
             j += 1
+    array = array.astype(dtype)
     return array
 
 
 def constructCospredVec(mz_arr, intensity_arr):
     intensity_arr = intensity_arr / np.max(intensity_arr)
-    vector_intensity = np.zeros(SPECTRA_DIMENSION, dtype=np.float32)
-    vector_mass = np.arange(0, BIN_MAXMZ, BIN_SIZE, dtype=np.float32)
+    vector_intensity = np.zeros(SPECTRA_DIMENSION, dtype=np.float16)
+    vector_mass = np.arange(0, BIN_MAXMZ, BIN_SIZE, dtype=np.float16)
 
     index_arr = mz_arr / BIN_SIZE
     index_arr = np.around(index_arr).astype('int16')
@@ -179,6 +193,7 @@ def reformatMGF_wSeq(mgffile, reformatmgffile):
                         peptide, FIXMOD_PROFORMA, VARMOD_PROFORMA)
                 elif 'CHARGE=' in line:
                     charge = line.replace('CHARGE=', '')
+                    charge = re.sub(r'\D+', '', charge)  # Remove all non-numeric characters
                     charge = int(charge)
                 elif 'SCANS=' in line:
                     scans = line.replace('SCANS=', '')
@@ -186,11 +201,17 @@ def reformatMGF_wSeq(mgffile, reformatmgffile):
                 elif 'COLLISION_ENERGY=' in line:
                     ce = line.replace('COLLISION_ENERGY=', '')
                     ce = float(ce)
+                elif 'CE=' in line:
+                    ce = line.replace('CE=', '')
+                    ce = float(ce)
                 elif 'PEPMASS=' in line:
                     pepmass = line.replace('PEPMASS=', '')
                     pepmass = float(pepmass)
                 elif 'FILENAME=' in line:
                     rawfilename = line.replace('FILENAME=', '')
+                    rawfilename = re.sub("\W$", '', rawfilename.split('/')[-1])
+                elif 'FILE=' in line:
+                    rawfilename = line.replace('FILE=', '')
                     rawfilename = re.sub("\W$", '', rawfilename.split('/')[-1])
                 elif 'END IONS' in line:
                     # remove sequence length > 30 or with unexpected amino acids
@@ -218,8 +239,7 @@ def reformatMGF_wSeq(mgffile, reformatmgffile):
                         spectra.append(spectrum)
                         count += 1
                         if (count % 1000 == 0):
-                            print(
-                                'Reformatting MGF Progress: {} records'.format(count))
+                            logging.info('Reformatting MGF Progress: {} records'.format(count))
                             # append a chunk of spectra to new MGF
                             mgf.write(
                                 spectra, output=reformatmgffile, file_mode='a')
@@ -232,7 +252,7 @@ def reformatMGF_wSeq(mgffile, reformatmgffile):
                     assert len(mzs) == len(intensities)
         if (len(spectra) > 0):
             mgf.write(spectra, output=reformatmgffile, file_mode='a')
-        print('Reformatting MGF Progress DONE: total {} records'.format(count))
+        logging.info('[USER] Reformatting MGF Progress DONE: total {} records'.format(count))
     return spectra
 
 
@@ -260,7 +280,7 @@ def splitMGF(mgffile, trainsetfile, testsetfile, n_test=5000):
                 # append a chunk of spectra to new MGF
                 mgf.write(spectra_test, output=testsetfile, file_mode='a')
                 spectra_test = []
-                print('spectrum index {} in testset'.format(i))
+                logging.info('spectrum index {} in testset'.format(i))
         else:
             spectra_train.append(spectrum)
             if (len(spectra_train) % 1000 == 0):
@@ -272,7 +292,7 @@ def splitMGF(mgffile, trainsetfile, testsetfile, n_test=5000):
         mgf.write(spectra_test, output=testsetfile, file_mode='a')
     if (len(spectra_train) > 0):
         mgf.write(spectra_train, output=trainsetfile, file_mode='a')
-    print('Splitting MGF Progress DONE: total {} records'.format(i))
+    logging.info('[USER] Splitting MGF Progress DONE: total {} records'.format(i))
 
     spectra.close()
     return test_index_list
@@ -281,7 +301,7 @@ def splitMGF(mgffile, trainsetfile, testsetfile, n_test=5000):
 def modifyMGFtitle(usimgffile, reformatmgffile, temp_dir):
     # Rewrite TITLE for the MGF
     if os.path.exists(usimgffile):
-        print('Creating temp MGF file with new TITLE...')
+        logging.info('Creating temp MGF file with new TITLE...')
 
         spectra_origin = mgf.read(usimgffile)
         spectra_new = []
@@ -298,9 +318,9 @@ def modifyMGFtitle(usimgffile, reformatmgffile, temp_dir):
         mgf.write(spectra_new, output=reformatmgffile)
         spectra_origin.close()
     else:
-        print("The reformatted MGF file does not exist")
+        logging.error("The reformatted MGF file does not exist")
 
-    print('MGF file with new TITLE was created!')
+    logging.info('[STATUS] MGF file with new TITLE was created!')
 
 
 # Contruct ML friendly spectra matrix for transformer full prediction
@@ -316,7 +336,7 @@ def generateHDF5_transformer_wSeq(usimgffile, reformatmgffile, csvfile,
     for spectrum in spectra:
         index += 1
         if (index % 100 == 0):
-            print('Generating CSV Progress: {} records'.format(index))
+            logging.info('Generating CSV Progress: {} records'.format(index))
         try:
             retention_time = spectrum['params']['rtinseconds']
             collision_energy = float(spectrum['params']['ce'])
@@ -347,12 +367,8 @@ def generateHDF5_transformer_wSeq(usimgffile, reformatmgffile, csvfile,
         except:
             next
 
-    print('generate list: ' + str(time.time()-start_time))
     mzs_df = pd.concat(mzs_df, axis=1)
-    print('Concat list: ' + str(time.time()-start_time))
-
     mzs_df = mzs_df.transpose()
-    print('transpost: ' + str(time.time()-start_time))
     mzs_df.columns = ['raw_file', 'scan_number', 'sequence', 'score',
                       'modified_sequence', 'proforma',
                       'mod_num', 'reverse',
@@ -362,20 +378,11 @@ def generateHDF5_transformer_wSeq(usimgffile, reformatmgffile, csvfile,
 
     # construct CSV
     mzs_df = mzs_df.reset_index(drop=True)
-    print('reset index: ' + str(time.time()-start_time))
-
     mzs_df = pd.concat([mzs_df], axis=1)
-    print('pd.concat: ' + str(time.time()-start_time))
-
     mzs_df['precursor_charge'] = mzs_df['precursor_charge'].astype(np.uint8)
     mzs_df['collision_energy_aligned_normed'] = mzs_df['collision_energy']/100.0
-    mzs_df.info()
-
     mzs_df = mzs_df.dropna()
-    print('dropna: ' + str(time.time()-start_time))
-
     mzs_df.columns = mzs_df.columns.str.replace('[\r]', '')
-    print('replace newline: ' + str(time.time()-start_time))
 
     # To prevent data leaking, only keep the peptides that are not in the contrast dataset
     if (contrastcsvfile is not None):
@@ -383,8 +390,7 @@ def generateHDF5_transformer_wSeq(usimgffile, reformatmgffile, csvfile,
         mzs_df = mzs_df[~mzs_df['proforma'].isin(constrast_dataset['proforma'])]
 
     mzs_df.to_csv(csvfile, index=False)      # CSV discards values in large vec
-    print('Write CSV: ' + str(time.time()-start_time))
-    print('Generating CSV Done!')
+    logging.info('[STATUS] Generating peptide list CSV ... DONE!')
 
     # construct Dataset based on CoSpred Transformer definition
     dataset = {
@@ -394,8 +400,6 @@ def generateHDF5_transformer_wSeq(usimgffile, reformatmgffile, csvfile,
         "precursor_charge_onehot": get_precursor_charge_onehot(mzs_df['precursor_charge']),
         "sequence_integer": get_sequence_integer(mzs_df['modified_sequence'])
     }
-
-    print('Assembling dataset dictionary: ' + str(time.time()-start_time))
 
     return dataset
 
@@ -416,6 +420,7 @@ def main():
     testcsvfile = constants_location.TESTCSV_PATH
     mgffile = constants_location.MGF_PATH
     if (workflow == 'split' or workflow == 'split_usi'):
+        logging.info('[INFO] Workflow: Splitting the dataset ...')        
         if (workflow == 'split'):
             mgffile = constants_location.MGF_PATH
             trainsetfile = constants_location.TRAINFILE
@@ -426,6 +431,7 @@ def main():
             testsetfile = constants_location.REFORMAT_TEST_USITITLE_PATH
         # hold out N records as testset
         splitMGF(mgffile, trainsetfile, testsetfile, n_test=5000)
+        logging.info(f'[STATUS] Workflow {workflow} ... DONE!')
     elif (workflow == 'train' or workflow == 'test'):
         if workflow == 'train':
             usimgffile = constants_location.REFORMAT_TRAIN_USITITLE_PATH
@@ -440,21 +446,28 @@ def main():
             csvfile = testcsvfile
             datasetfile = constants_location.TESTDATASET_PATH
         # generate CSV for train and test list
-        if not os.path.isfile(reformatmgffile):
+        if not os.path.exists(reformatmgffile):
+            logging.info(f'Workflow: Annotating {workflow} set ...')        
             if (workflow == 'train'):
                 dataset = generateHDF5_transformer_wSeq(usimgffile, reformatmgffile,
                                                 csvfile, hdf5file, temp_dir, None)
             elif (workflow == 'test'):
                 dataset = generateHDF5_transformer_wSeq(usimgffile, reformatmgffile,
                                                 csvfile, hdf5file, temp_dir, traincsvfile)
-        io_local.to_hdf5(dataset, hdf5file)
-        io_local.to_arrow(dataset, datasetfile)
-        print('Saving Dataset Done!')
+            logging.info(f'Saving {workflow} set to HDF5 ...')
+            io_local.to_hdf5(dataset, hdf5file)
+            logging.info(f'Saving {workflow} set to Arrow chunks ...')
+            io_local.to_arrow(dataset, datasetfile)
+            logging.info(f'[STATUS] {workflow} set preparation ... DONE!')
+        else:
+            logging.error(f'{workflow} set is already existed')            
     elif (workflow == 'reformat'):
+        logging.info(f'WORKFLOW: {workflow} ... ')
         usimgffile = constants_location.REFORMAT_USITITLE_PATH
         reformatMGF_wSeq(mgffile, usimgffile)
+        logging.info(f'[STATUS] Workflow {workflow} ... DONE!')
     else:
-        print("Unknown workflow choice.")
+        logging.error("Unknown workflow choice.")
 
 
 if __name__ == "__main__":
