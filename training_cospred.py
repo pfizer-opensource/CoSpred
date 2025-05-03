@@ -21,26 +21,6 @@ import matplotlib
 matplotlib.use('Agg')
 
 import warnings
-# Suppress warning message of tensorflow compatibility
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-os.environ['TF_CPP_MIN_VLOG_LEVEL'] = '3'
-warnings.filterwarnings("ignore")
-
-# Configure logging
-log_file_train = os.path.join(constants_location.PREDICT_DIR, "cospred_train.log")
-logging.basicConfig(
-    filename=log_file_train,
-    filemode="w",  # Overwrite the log file each time the script runs
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    level=logging.INFO  # Set the logging level (INFO, DEBUG, WARNING, ERROR, CRITICAL)
-)
-
-# Optionally, log to both file and console
-console = logging.StreamHandler()
-console.setLevel(logging.INFO)
-formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-console.setFormatter(formatter)
-logging.getLogger().addHandler(console)
 
 def train_transformer(ds_train, ds_val, flag_fullspectrum, model, model_dir):
     if not os.path.exists(model_dir):
@@ -260,6 +240,27 @@ def record_prosit(history, result_dir):
 
 
 def main():
+    # Suppress warning message of tensorflow compatibility
+    os.environ['TF_CPP_MIN_VLOG_LEVEL'] = '3'
+    os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # turn off tf logging
+    warnings.filterwarnings("ignore")
+
+    # Configure logging
+    log_file_train = os.path.join(constants_location.PREDICT_DIR, "cospred_train.log")
+    logging.basicConfig(
+        filename=log_file_train,
+        filemode="w",  # Overwrite the log file each time the script runs
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        level=logging.INFO  # Set the logging level (INFO, DEBUG, WARNING, ERROR, CRITICAL)
+    )
+
+    # Optionally, log to both file and console
+    console = logging.StreamHandler()
+    console.setLevel(logging.INFO)
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    console.setFormatter(formatter)
+    logging.getLogger().addHandler(console)
+
     parser = ArgumentParser()
     parser.add_argument('-t', '--trained', default=False, action='store_true',
                         help='turn on loading best existing model')
@@ -270,8 +271,6 @@ def main():
     parser.add_argument('-b', '--bigru', default=False, action='store_true',
                         help='train with BiGRU model')
     args = parser.parse_args()
-
-    os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # turn off tf logging
 
     # input file setup
     data_path = constants_location.TRAINDATA_PATH          # input file

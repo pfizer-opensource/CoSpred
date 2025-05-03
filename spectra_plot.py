@@ -9,38 +9,14 @@ from pyteomics import mgf
 import spectrum_utils.spectrum as sus
 import spectrum_utils.plot as sup
 import os
+import warnings
 import matplotlib
 import matplotlib.pyplot as plt
 matplotlib.use('Agg')
 
-import warnings
-# Suppress warning message of tensorflow compatibility
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-os.environ['TF_CPP_MIN_VLOG_LEVEL'] = '3'
-warnings.filterwarnings("ignore")
-
-# Configure logging
-log_file_plot = os.path.join(constants_location.PREDICT_DIR, "cospred_plot.log")
-logging.basicConfig(
-    filename=log_file_plot,
-    filemode="w",  # Overwrite the log file each time the script runs
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    level=logging.INFO  # Set the logging level (INFO, DEBUG, WARNING, ERROR, CRITICAL)
-)
-
-# Optionally, log to both file and console
-console = logging.StreamHandler()
-console.setLevel(logging.INFO)
-formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-console.setFormatter(formatter)
-logging.getLogger().addHandler(console)
-
-# global variable
-min_mz = 0
-min_intensity = 0.02
 
 # single plot
-def singleplot(feature, predict_mgf, plot_dir):
+def singleplot(feature, predict_mgf, plot_dir, min_mz=0, min_intensity=0.02):
     # Read the spectrum from an MGF file using Pyteomics.
     spectrum_dict = mgf.get_spectrum(predict_mgf, feature)
 
@@ -81,7 +57,7 @@ def singleplot(feature, predict_mgf, plot_dir):
 # mirror plot for two different peptides
 
 
-def mirroplot_twopeptides(peplist, predict_mgf, plot_dir):
+def mirroplot_twopeptides(peplist, predict_mgf, plot_dir, min_mz=0, min_intensity=0.02):
     spectra = []
     for spectrum_dict in mgf.read(predict_mgf):
         if peplist[0] in spectrum_dict['params']['title'] or peplist[1] in spectrum_dict['params']['title']:
@@ -126,7 +102,7 @@ def mirroplot_twopeptides(peplist, predict_mgf, plot_dir):
     logging.info('Double Peptides Plot Done!')
 
 # mirror plot for two dataset
-def mirroplot_twosets(peplist, predict_mgf, reference_spectra, plot_dir):
+def mirroplot_twosets(peplist, predict_mgf, reference_spectra, plot_dir, min_mz=0, min_intensity=0.02):
     if not os.path.isfile(predict_mgf):
         logging.error('{} not found'.format(predict_mgf))
     elif not os.path.isfile(reference_spectra):
@@ -200,6 +176,27 @@ def peplist_from_csv(csvfile):
 
 
 def main():
+    # Suppress warning message of tensorflow compatibility
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+    os.environ['TF_CPP_MIN_VLOG_LEVEL'] = '3'
+    warnings.filterwarnings("ignore")
+
+    # Configure logging
+    log_file_plot = os.path.join(constants_location.PREDICT_DIR, "cospred_plot.log")
+    logging.basicConfig(
+        filename=log_file_plot,
+        filemode="w",  # Overwrite the log file each time the script runs
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        level=logging.INFO  # Set the logging level (INFO, DEBUG, WARNING, ERROR, CRITICAL)
+    )
+
+    # Optionally, log to both file and console
+    console = logging.StreamHandler()
+    console.setLevel(logging.INFO)
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    console.setFormatter(formatter)
+    logging.getLogger().addHandler(console)
+
     parser = ArgumentParser()
     parser.parse_args()
 
@@ -210,6 +207,8 @@ def main():
     reference_spectra = constants_location.REFERENCE_SPECTRA
     predict_msp = predict_dir + constants_location.PREDICT_LIB_FILENAME + '.msp'
     predict_mgf = predict_dir + constants_location.PREDICT_LIB_FILENAME + '.mgf'
+    min_mz = 0
+    min_intensity = 0.02
 
     assert predict_format == 'msp', "PREDICT_FORMAT should be 'msp'"
     peptidelistfile = predict_csv
@@ -225,12 +224,12 @@ def main():
     msp_parser.dict2mgf(spectrum_prosit, predict_mgf)
 
     # single spectra
-    singleplot(peplist[0], predict_mgf, plot_dir)
+    singleplot(peplist[0], predict_mgf, plot_dir, min_mz, min_intensity)
     # compare two different peptides
-    mirroplot_twopeptides(peplist[:2], predict_mgf, plot_dir)
+    mirroplot_twopeptides(peplist[:2], predict_mgf, plot_dir, min_mz, min_intensity)
     # compare same peptide from two methods
     mirroplot_twosets(peplist[:20], predict_mgf, reference_spectra,
-                      plot_dir)
+                      plot_dir, min_mz, min_intensity)
 
 
 if __name__ == "__main__":

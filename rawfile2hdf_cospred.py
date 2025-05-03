@@ -5,6 +5,7 @@ from pyteomics import mgf
 import numpy as np
 import pandas as pd
 import os
+import warnings
 import time
 from argparse import ArgumentParser
 import random
@@ -23,30 +24,6 @@ from params.constants import (
 from preprocess import utils
 from prosit_model import io_local
 import io_cospred
-
-import warnings
-# Suppress warning message of tensorflow compatibility
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-os.environ['TF_CPP_MIN_VLOG_LEVEL'] = '3'
-warnings.filterwarnings("ignore")
-
-# Configure logging
-log_file_prep = os.path.join(constants_location.PREDICT_DIR, "cospred_prep.log")
-logging.basicConfig(
-    filename=log_file_prep,
-    filemode="w",  # Overwrite the log file each time the script runs
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    level=logging.INFO  # Set the logging level (INFO, DEBUG, WARNING, ERROR, CRITICAL)
-)
-
-# Optionally, log to both file and console
-console = logging.StreamHandler()
-console.setLevel(logging.INFO)
-formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-console.setFormatter(formatter)
-logging.getLogger().addHandler(console)
-
-COL_SEP = "\t"
 
 
 def peptide_parser(p):
@@ -585,6 +562,27 @@ def load_dataframe(input_data):
 
 
 def main():
+    # Suppress warning message of tensorflow compatibility
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+    os.environ['TF_CPP_MIN_VLOG_LEVEL'] = '3'
+    warnings.filterwarnings("ignore")
+
+    # Configure logging
+    log_file_prep = os.path.join(constants_location.PREDICT_DIR, "cospred_prep.log")
+    logging.basicConfig(
+        filename=log_file_prep,
+        filemode="w",  # Overwrite the log file each time the script runs
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        level=logging.INFO  # Set the logging level (INFO, DEBUG, WARNING, ERROR, CRITICAL)
+    )
+
+    # Optionally, log to both file and console
+    console = logging.StreamHandler()
+    console.setLevel(logging.INFO)
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    console.setFormatter(formatter)
+    logging.getLogger().addHandler(console)
+
     parser = ArgumentParser()
     parser.add_argument('-w', '--workflow', default='test',
                         help='workflow to use')

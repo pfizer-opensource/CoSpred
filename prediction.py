@@ -1,6 +1,6 @@
 import os
 import logging
-
+import warnings
 import shutil
 import time
 import torch
@@ -31,28 +31,6 @@ from prosit_model.converters import maxquant, msp
 
 from cospred_model.metrics import ComputeMetrics_CPU
 
-import warnings
-# Suppress warning message of tensorflow compatibility
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-os.environ['TF_CPP_MIN_VLOG_LEVEL'] = '3'
-# warnings.filterwarnings("ignore", category=UserWarning)
-warnings.filterwarnings("ignore")
-
-# Configure logging
-log_file_predict = os.path.join(constants_location.PREDICT_DIR, "cospred_predict.log")
-logging.basicConfig(
-    filename=log_file_predict,
-    filemode="w",  # Overwrite the log file each time the script runs
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    level=logging.INFO  # Set the logging level (INFO, DEBUG, WARNING, ERROR, CRITICAL)
-)
-
-# Optionally, log to both file and console
-console = logging.StreamHandler()
-console.setLevel(logging.INFO)
-formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-console.setFormatter(formatter)
-logging.getLogger().addHandler(console)
 
 # initialize global variables
 global d_spectra
@@ -776,6 +754,28 @@ def predict(predict_csv, predict_dir, predict_format, predict_hdf5, predict_ds,
 
 
 def main():
+    # Suppress warning message of tensorflow compatibility
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+    os.environ['TF_CPP_MIN_VLOG_LEVEL'] = '3'
+    # warnings.filterwarnings("ignore", category=UserWarning)
+    warnings.filterwarnings("ignore")
+
+    # Configure logging
+    log_file_predict = os.path.join(constants_location.PREDICT_DIR, "cospred_predict.log")
+    logging.basicConfig(
+        filename=log_file_predict,
+        filemode="w",  # Overwrite the log file each time the script runs
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        level=logging.INFO  # Set the logging level (INFO, DEBUG, WARNING, ERROR, CRITICAL)
+    )
+
+    # Optionally, log to both file and console
+    console = logging.StreamHandler()
+    console.setLevel(logging.INFO)
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    console.setFormatter(formatter)
+    logging.getLogger().addHandler(console)
+    
     start_time = time.time()
 
     # Code to be timed
