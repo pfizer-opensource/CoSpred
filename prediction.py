@@ -631,7 +631,7 @@ def arrowchunk_to_chunkdict(arrow_chunk_dir, chunkname, predict_hdf5_dir,
 
 
 def predict(predict_csv, predict_dir, predict_format, predict_hdf5, predict_ds,
-            flag_prosit, flag_fullspectrum, flag_evaluate, flag_chunk):
+            flag_prosit, flag_fullspectrum, flag_evaluate, flag_chunk, flag_resume):
     
     predict_hdf5_dir = constants_location.PREDICT_HDF5_DIR   
     predict_chunk_dir = constants_location.PREDICT_CHUNK_DIR
@@ -644,8 +644,6 @@ def predict(predict_csv, predict_dir, predict_format, predict_hdf5, predict_ds,
     combined_batch_file = constants_location.PREDICT_BATCH_COMBINED_FILE  # batch combined result file path
     speclib_filename = constants_location.PREDICT_LIB_FILENAME
     arrow_chunk_dir = constants_location.PREDDATASET_PATH
-
-    initializeDir(predict_hdf5_dir, predict_chunk_dir, predict_batch_dir, predict_lib_dir)
     
     if predict_format == 'msp':
         speclib_file = os.path.join(predict_dir, speclib_filename + ".msp")
@@ -655,44 +653,48 @@ def predict(predict_csv, predict_dir, predict_format, predict_hdf5, predict_ds,
     if os.path.exists(predict_csv):        
         predict_df = pd.read_csv(predict_csv, index_col=None)
         if flag_chunk:
-            ### Iterate through Arrow chunks if flag_chunk is True ###           
-            logging.info("Processing dataset in Chunks ...")
-            for chunkname in os.listdir(arrow_chunk_dir):
-                if chunkname.startswith("chunk_") and (not chunkname.endswith(".h5")):
-                    chunk_dict, chunk_ds, chunk_df = arrowchunk_to_chunkdict(
-                        arrow_chunk_dir, chunkname, predict_hdf5_dir, flag_evaluate, flag_fullspectrum)
+            if not flag_resume:
+                ### Iterate through Arrow chunks if flag_chunk is True ###           
+                initializeDir(predict_hdf5_dir, predict_chunk_dir, predict_batch_dir, predict_lib_dir)
+                logging.info("Processing dataset in Chunks ...")
+                for chunkname in os.listdir(arrow_chunk_dir):
+                    if chunkname.startswith("chunk_") and (not chunkname.endswith(".h5")):
+                        chunk_dict, chunk_ds, chunk_df = arrowchunk_to_chunkdict(
+                            arrow_chunk_dir, chunkname, predict_hdf5_dir, flag_evaluate, flag_fullspectrum)
 
-                    # Perform predictions on the chunk
-                    if flag_prosit:
-                        pred = prediction_prosit(
-                            predict_batch_dir, predict_batch_result_file, combined_batch_file,
-                            chunk_dict, chunk_ds, d_spectra, flag_fullspectrum, flag_evaluate,
-                            flag_chunk=True)
-                    else:
-                        pred = prediction_transformer(
-                            predict_batch_dir, predict_batch_result_file, combined_batch_file,
-                            chunk_dict, chunk_ds, d_spectra, flag_fullspectrum, flag_evaluate,
-                            flag_chunk=True)
-                        
-                    # Save the chunk output to a unique file, all keys include mass, intensity and sequence_integer
-                    chunk_output_file = os.path.join(predict_chunk_dir, f"prediction_output_{chunkname}.h5")
-                    with h5py.File(chunk_output_file, "w") as h5f:
-                        for key, value in pred.items():
-                            h5f.create_dataset(key, data=value)
-                    logging.info(f"{chunkname} Prediction output saved to {chunk_output_file}")
+                        # Perform predictions on the chunk
+                        if flag_prosit:
+                            pred = prediction_prosit(
+                                predict_batch_dir, predict_batch_result_file, combined_batch_file,
+                                chunk_dict, chunk_ds, d_spectra, flag_fullspectrum, flag_evaluate,
+                                flag_chunk=True)
+                        else:
+                            pred = prediction_transformer(
+                                predict_batch_dir, predict_batch_result_file, combined_batch_file,
+                                chunk_dict, chunk_ds, d_spectra, flag_fullspectrum, flag_evaluate,
+                                flag_chunk=True)
+                            
+                        # Save the chunk output to a unique file, all keys include mass, intensity and sequence_integer
+                        chunk_output_file = os.path.join(predict_chunk_dir, f"prediction_output_{chunkname}.h5")
+                        with h5py.File(chunk_output_file, "w") as h5f:
+                            for key, value in pred.items():
+                                h5f.create_dataset(key, data=value)
+                        logging.info(f"{chunkname} Prediction output saved to {chunk_output_file}")
 
-                    # Save the chunk predictions in the requested format  
-                    if predict_format == 'msp':
-                        speclib_chunk_filename = os.path.join(predict_lib_dir, f"{speclib_filename}_{chunkname}.msp")
-                    else:
-                        speclib_chunk_filename = os.path.join(predict_lib_dir, f"{speclib_filename}_{chunkname}.txt")
-                    convert_and_save_predictions(pred, speclib_chunk_filename, predict_format, flag_fullspectrum)
+                        # Save the chunk predictions in the requested format  
+                        if predict_format == 'msp':
+                            speclib_chunk_filename = os.path.join(predict_lib_dir, f"{speclib_filename}_{chunkname}.msp")
+                        else:
+                            speclib_chunk_filename = os.path.join(predict_lib_dir, f"{speclib_filename}_{chunkname}.txt")
+                        convert_and_save_predictions(pred, speclib_chunk_filename, predict_format, flag_fullspectrum)
 
-                    # Evaluate chunk predictions if flag_evaluate is True
-                    if flag_evaluate is True:
-                        eval_dir = os.path.join(predict_lib_dir, f"evaluation_{speclib_filename}_{chunkname}")
-                        evaluate_predictions(pred, chunk_dict, chunk_df, eval_dir)
-            ### End of processing all Arrow chunks ###
+                        # Evaluate chunk predictions if flag_evaluate is True
+                        if flag_evaluate is True:
+                            eval_dir = os.path.join(predict_lib_dir, f"evaluation_{speclib_filename}_{chunkname}")
+                            evaluate_predictions(pred, chunk_dict, chunk_df, eval_dir)
+                ### End of processing all Arrow chunks ###
+            else:
+                logging.info("Using Preprocessed Chunks ...")
 
             # Combine all chunk files into a single HDF5 file
             combined_dict = concatenate_hdf5_chunk(predict_chunk_dir, predict_result_file)
@@ -788,6 +790,8 @@ def main():
                         help='predict with BiGRU model')
     parser.add_argument('-c', '--chunk', default=False, action='store_true',
                         help='prediction list in chunk')
+    parser.add_argument('-r', '--resume', default=False, action='store_true',
+                        help='resume the prediction post chunking')
     parser.add_argument('-e', '--evaluate', default=False, action='store_true',
                         help='evaulate model with metrics')
     args = parser.parse_args()
@@ -882,16 +886,20 @@ def main():
         csvfile = constants_location.PREDICT_ORIGINAL
         if (os.path.exists(csvfile)):
             logging.info(f"Reference CSV {csvfile} was provided. Move on to prediction.")
-            # filter prediction list to remove non-amino acid and transform to dictionary
-            predict_dict = io_cospred.constructDataset_frompep(csvfile, predict_csv)
-            # save dataset to hdf5 for prediction usage
-            io_cospred.to_hdf5(predict_dict, predict_hdf5)
+            if not args.resume:
+                # filter prediction list to remove non-amino acid and transform to dictionary
+                predict_dict = io_cospred.constructDataset_frompep(csvfile, predict_csv)
+                # save dataset to hdf5 for prediction usage
+                io_cospred.to_hdf5(predict_dict, predict_hdf5)
         else:
             logging.error(f"Reference CSV {csvfile} was not found. Please provide a valid file.")
             return 0
         
     # convert hdf5 to hugginface Dataset (Three array for predication only)
-    predict_ds = io_cospred.genDataset(predict_hdf5, chunk_dir, args.chunk)
+    if not args.resume:
+        predict_ds = io_cospred.genDataset(predict_hdf5, chunk_dir, args.chunk)
+    else:
+        predict_ds = None
 
     ### prediction process ###
     logging.info('[STATUS] INPUT PREPARATION finished. Start PREDICTION...')
@@ -899,7 +907,7 @@ def main():
     if predict_format == 'maxquant' or predict_format == 'msp':
         # Maxquant output
         predict(predict_csv, predict_dir, predict_format, predict_hdf5, predict_ds,
-                args.bigru, args.full, args.evaluate, args.chunk)
+                args.bigru, args.full, args.evaluate, args.chunk, args.resume)
     else:
         logging.error('Predicted Spectra library format could only be maxquant or msp')
 

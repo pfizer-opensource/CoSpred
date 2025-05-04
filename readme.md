@@ -25,7 +25,7 @@ To best test and experience usage of the software, we recommend to use docker en
 
 #### Option 1: Pull the pre-built docker image
 ```shell
-docker pull xuel12pfizer/cospred:v0.1
+docker pull xuel12pfizer/cospred:v0.2
 ```
 
 #### Option 2: Build the computational environment locally
@@ -37,20 +37,21 @@ This [Code Ocean](https://codeocean.com) Compute Capsule will allow you to repro
 In your terminal, navigate to the demo folder where you've extracted the demo example data and execute the following command:
 
 ```shell
-cd environment && docker build . --tag cospred; cd ..
+cd environment && docker build . --tag cospred_docker; cd ..
 ```
-> This step will recreate the environment (i.e., the Docker image) locally, fetching and installing any required dependencies in the process. If any external resources have become unavailable for any reason, the environment will fail to build.
+> This step will recreate the environment (i.e., the Docker image) locally, fetching and installing any required dependencies in the process. If any external resources have become unavailable for any reason, the environment will fail to build. Note that in this example, the docker image name is `cospred_docker` which will be refered in the following session.
 
 ### 3. Run the docker container to reproduce the results
 
-In your terminal, navigate to the demo folder where you've extracted the capsule and execute the following command, adjusting parameters as needed:
+In your terminal, navigate to the demo folder where you've extracted the capsule and execute the following command, run the docker container using the image just built in the previous session named `cospred_docker`, adjust parameters as needed (e.g. fot the machine that doesn't have GPU, remove the option flag `--gpus all`).
+
 ```shell
 docker run --platform linux/amd64 --rm --gpus all \
   --workdir /capsule \
   --volume "$PWD/data":/data \
   --volume "$PWD/capsule":/capsule \
   --volume "$PWD/results":/results \
-  cospred bash run.sh
+  cospred_docker bash run.sh
 ```
 
 ## Advance usage in native mode
