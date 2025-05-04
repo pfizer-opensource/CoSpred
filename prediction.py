@@ -126,7 +126,7 @@ def concatenate_hdf5(output_dir, predict_input, predict_result_file, combined_fi
     return combined_dict
 
 
-def concatenate_hdf5_chunk(hdf5_dir, predict_result_file):
+def concatenate_hdf5_chunk(hdf5_dir, predict_result_file, flag_resume):
     """
     Concatenate all HDF5 files in a directory by their keys and save to a single HDF5 file.
 
@@ -142,31 +142,30 @@ def concatenate_hdf5_chunk(hdf5_dir, predict_result_file):
     hdf5_files = [os.path.join(hdf5_dir, f) for f in os.listdir(hdf5_dir) if f.endswith(".h5")]
     logging.info(f"Found {len(hdf5_files)} HDF5 files to concatenate.")
 
-    # Initialize a dictionary to store concatenated data
-    concatenated_data = {}
-
-    # Iterate through each HDF5 file
-    for hdf5_file in hdf5_files:
-        with h5py.File(hdf5_file, "r") as h5f:
-            for key in h5f.keys():
-                data = h5f[key][:]
-                if key in concatenated_data:
-                    concatenated_data[key] = np.concatenate((concatenated_data[key], data), axis=0)
-                else:
-                    concatenated_data[key] = data
-    
-    # Step 2: Save the concatenated data to a single HDF5 file
-    with h5py.File(predict_result_file, "w") as h5f:
-        for key, data in concatenated_data.items():
-            h5f.create_dataset(key, data=data)
-
+    # Step 2: Open the output file in append mode
+    with h5py.File(predict_result_file, "w") as combined_h5:
+        for hdf5_file in hdf5_files:
+            with h5py.File(hdf5_file, "r") as h5f:
+                for key in h5f.keys():
+                    data = h5f[key][:]
+                    if key in combined_h5:
+                        # Append data to the existing dataset
+                        combined_h5[key].resize((combined_h5[key].shape[0] + data.shape[0]), axis=0)
+                        combined_h5[key][-data.shape[0]:] = data
+                    else:
+                        # Create a new dataset and enable resizing
+                        combined_h5.create_dataset(
+                            key, data=data, maxshape=(None,) + data.shape[1:], chunks=True
+                        )
     logging.info(f"Prediction Values saved to {predict_result_file}")
-    
+
     combined_dict = {}
-    with h5py.File(predict_result_file, "r") as h5f:
-        for key in h5f.keys():
-            combined_dict[key] = h5f[key][:]
-    
+    # if the size is too big has to be done by resuming, not practical to load entire set in memory
+    if not flag_resume:
+        with h5py.File(predict_result_file, "r") as h5f:
+            for key in h5f.keys():
+                combined_dict[key] = h5f[key][:]
+
     return combined_dict
 
 
@@ -697,14 +696,14 @@ def predict(predict_csv, predict_dir, predict_format, predict_hdf5, predict_ds,
                 logging.info("Using Preprocessed Chunks ...")
 
             # Combine all chunk files into a single HDF5 file
-            combined_dict = concatenate_hdf5_chunk(predict_chunk_dir, predict_result_file)
+            combined_dict = concatenate_hdf5_chunk(predict_chunk_dir, predict_result_file, flag_resume)
 
-            # remove all chunk files after combining, except for the combined file
-            for filename in os.listdir(predict_chunk_dir):
-                file_path = os.path.join(predict_chunk_dir, filename)
-                if file_path != predict_chunk_result_file:  # Keep the combined chunk result file
-                    os.remove(file_path)
-            logging.info(f"[USER] All chunk files removed except for the combined prediction file: {predict_result_file}")
+            # # remove all chunk files after combining, except for the combined file
+            # for filename in os.listdir(predict_chunk_dir):
+            #     file_path = os.path.join(predict_chunk_dir, filename)
+            #     if file_path != predict_chunk_result_file:  # Keep the combined chunk result file
+            #         os.remove(file_path)
+            # logging.info(f"[USER] All chunk files removed except for the combined prediction file: {predict_result_file}")
             
             # Combine all spectra library chunk files into a single file
             with open(speclib_file, 'w') as outfile:
@@ -715,11 +714,11 @@ def predict(predict_csv, predict_dir, predict_format, predict_hdf5, predict_ds,
                         logging.info(f"Combining file path: {speclib_chunk_path}")
                         with open(speclib_chunk_path, 'r') as infile:
                             outfile.write(infile.read())
-                            os.remove(speclib_chunk_path)     # remove the chunk file after combining
+                            # os.remove(speclib_chunk_path)     # remove the chunk file after combining
             logging.info(f"[USER] All predicted spectra library files were combined into: {speclib_file}")
             
             # Evaluate predictions if flag_evaluate is True
-            if flag_evaluate is True:
+            if flag_evaluate is True and len(combined_dict.keys() > 0):
                 eval_dir = os.path.join(predict_lib_dir, f"evaluation_{speclib_filename}")
                 evaluate_predictions(combined_dict, combined_dict, predict_df, eval_dir)
 
