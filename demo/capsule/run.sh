@@ -2,6 +2,10 @@
 set -ex
 
 pwd
+
+# pre clean up
+rm -rf CoSpred
+
 # clone repo
 git clone https://github.com/pfizer-opensource/CoSpred.git --depth 1
 # git -C CoSpred pull || git clone https://github.com/pfizer-opensource/CoSpred.git CoSpred --depth 1
@@ -27,7 +31,7 @@ cd CoSpred
 # python training_cospred.py -fc
 
 ## spectrum prediction from sequence
-python prediction.py -f
+python prediction.py -fc
 
 ## plotting spectrum
 python spectra_plot.py

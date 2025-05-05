@@ -204,7 +204,8 @@ def main():
     predict_csv = constants_location.PREDICTCSV_PATH
     predict_format = constants_location.PREDICT_FORMAT
     predict_dir = constants_location.PREDICT_DIR
-    reference_spectra = constants_location.REFERENCE_SPECTRA
+    reference_spectra = constants_location.REFORMAT_TEST_PATH
+    reference_spectra_usi = constants_location.REFORMAT_TEST_USITITLE_PATH
     predict_msp = predict_dir + constants_location.PREDICT_LIB_FILENAME + '.msp'
     predict_mgf = predict_dir + constants_location.PREDICT_LIB_FILENAME + '.mgf'
     min_mz = 0
@@ -228,8 +229,14 @@ def main():
     # compare two different peptides
     mirroplot_twopeptides(peplist[:2], predict_mgf, plot_dir, min_mz, min_intensity)
     # compare same peptide from two methods
-    mirroplot_twosets(peplist[:20], predict_mgf, reference_spectra,
-                      plot_dir, min_mz, min_intensity)
+    if (os.path.exists(reference_spectra)):
+        mirroplot_twosets(peplist[:20], predict_mgf, reference_spectra,
+                        plot_dir, min_mz, min_intensity)
+    elif (os.path.exists(reference_spectra_usi)):
+        mirroplot_twosets(peplist[:20], predict_mgf, reference_spectra_usi,
+                        plot_dir, min_mz, min_intensity)
+    else:
+        logging.error("No Reference Spectra for Mirror Plot")
 
 
 if __name__ == "__main__":

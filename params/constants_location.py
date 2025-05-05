@@ -39,7 +39,6 @@ PREDICT_ORIGINAL = DATA_DIR + "peptidelist_test.csv"
 PREDICTCSV_PATH = DATA_DIR + "peptidelist_predict.csv"
 PREDDATA_PATH = DATA_DIR + "predict.hdf5"
 PREDDATASET_PATH = DATA_DIR + "predict_arrow/"
-REFERENCE_SPECTRA = REFORMAT_TEST_PATH
 PREDICT_DIR = BASE_PATH + "prediction/"
 PREDICT_HDF5_DIR = PREDICT_DIR + "hdf5/"
 PREDICT_BATCH_DIR = PREDICT_DIR + "prediction_batches/"
@@ -51,4 +50,5 @@ PREDICT_RESULT_FILE = PREDICT_DIR + "spectrum_prediction_result.h5"
 PREDICT_LIB_DIR = PREDICT_DIR + "prediction_library/"
 PREDICT_LIB_FILENAME = "speclib_prediction"
 
+# plot
 PLOT_DIR = PREDICT_DIR + "plot/"

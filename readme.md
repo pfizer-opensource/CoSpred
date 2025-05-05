@@ -20,8 +20,11 @@ To best test and experience usage of the software, we recommend to use docker en
 
 - [Docker Community Edition (CE)](https://www.docker.com/community-edition)
 - [nvidia-container-runtime](https://docs.docker.com/config/containers/resource_constraints/#gpu) for code that leverages the GPU
+- [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) to use GPU in docker container.
 
 ### 2. Setup the computing environment
+
+- Git clone the repo, download the pre-trained model `pretrained_models.zip` and `example.zip` from [FigShare](https://figshare.com/s/8a60e7017cd82db9a1b7), and store under `CoSpred/demo/data`.
 
 #### Option 1: Pull the pre-built docker image
 ```shell

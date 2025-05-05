@@ -580,26 +580,32 @@ def evaluate_predictions(predict_dict, ref_dict, predict_df, predict_dir):
     logging.info(f"[USER] Evaluation metrics saved to {metrics_folder}")
 
 
-def initializeDir(predict_hdf5_dir, predict_chunk_dir, predict_batch_dir, predict_lib_dir):
-    # Directory to save predicted library files
-    if os.path.exists(predict_hdf5_dir):
-        shutil.rmtree(predict_hdf5_dir)
-    os.makedirs(predict_hdf5_dir, exist_ok=True)
+def initializeDir(list_dir, flag_resume):
+    # iterate through list of directory to initiate
+    for tmp_dir in list_dir:
+        if not flag_resume and os.path.exists(tmp_dir):
+            shutil.rmtree(tmp_dir)
+        os.makedirs(tmp_dir, exist_ok=True)
+    
+    # # Directory to save predicted library files
+    # if os.path.exists(predict_hdf5_dir):
+    #     shutil.rmtree(predict_hdf5_dir)
+    # os.makedirs(predict_hdf5_dir, exist_ok=True)
 
-    # Directory to save chunk HDF5 files
-    if os.path.exists(predict_chunk_dir):
-        shutil.rmtree(predict_chunk_dir)
-    os.makedirs(predict_chunk_dir, exist_ok=True)
+    # # Directory to save chunk HDF5 files
+    # if os.path.exists(predict_chunk_dir):
+    #     shutil.rmtree(predict_chunk_dir)
+    # os.makedirs(predict_chunk_dir, exist_ok=True)
     
-    # Directory to save batch HDF5 files
-    if os.path.exists(predict_batch_dir):
-        shutil.rmtree(predict_batch_dir)
-    os.makedirs(predict_batch_dir, exist_ok=True)
+    # # Directory to save batch HDF5 files
+    # if os.path.exists(predict_batch_dir):
+    #     shutil.rmtree(predict_batch_dir)
+    # os.makedirs(predict_batch_dir, exist_ok=True)
     
-    # Directory to save predicted library files
-    if os.path.exists(predict_lib_dir):
-        shutil.rmtree(predict_lib_dir)
-    os.makedirs(predict_lib_dir, exist_ok=True)
+    # # Directory to save predicted library files
+    # if os.path.exists(predict_lib_dir):
+    #     shutil.rmtree(predict_lib_dir)
+    # os.makedirs(predict_lib_dir, exist_ok=True)
     
 
 def arrowchunk_to_chunkdict(arrow_chunk_dir, chunkname, predict_hdf5_dir,
@@ -649,12 +655,13 @@ def predict(predict_csv, predict_dir, predict_format, predict_hdf5, predict_ds,
     else:
         speclib_file = os.path.join(predict_dir, speclib_filename + ".txt")
 
-    if os.path.exists(predict_csv):        
+    if os.path.exists(predict_csv):       
+        dir_list = [predict_hdf5_dir, predict_chunk_dir, predict_batch_dir, predict_lib_dir]
+        initializeDir(dir_list, flag_resume)
         predict_df = pd.read_csv(predict_csv, index_col=None)
         if flag_chunk:
             if not flag_resume:
                 ### Iterate through Arrow chunks if flag_chunk is True ###           
-                initializeDir(predict_hdf5_dir, predict_chunk_dir, predict_batch_dir, predict_lib_dir)
                 logging.info("Processing dataset in Chunks ...")
                 for chunkname in os.listdir(arrow_chunk_dir):
                     if chunkname.startswith("chunk_") and (not chunkname.endswith(".h5")):
@@ -902,7 +909,7 @@ def main():
 
     ### prediction process ###
     logging.info('[STATUS] INPUT PREPARATION finished. Start PREDICTION...')
-    
+   
     if predict_format == 'maxquant' or predict_format == 'msp':
         # Maxquant output
         predict(predict_csv, predict_dir, predict_format, predict_hdf5, predict_ds,
