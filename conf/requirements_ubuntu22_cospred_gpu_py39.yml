@@ -1,9 +1,11 @@
-name: cospred_cpu_py39
+name: ubuntu22_cospred_gpu_py39
 channels:
-  - anaconda
   - pytorch
   - nvidia
   - conda-forge
+  - huggingface
+  - defaults
+  - anaconda
 dependencies:
   - _libgcc_mutex=0.1=conda_forge
   - _openmp_mutex=4.5=2_gnu
