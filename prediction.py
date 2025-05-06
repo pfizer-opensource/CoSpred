@@ -1,4 +1,5 @@
 import os
+import sys
 import logging
 import warnings
 import shutil
@@ -790,6 +791,7 @@ def main():
         os.makedirs(predict_dir, exist_ok=True)
     logging.info("Pediction result directory created: {}".format(predict_dir))
 
+    sys.setrecursionlimit(20000)  # Increase the recursion limit
     start_time = time.time()
 
     # Code to be timed
