@@ -188,10 +188,11 @@ wandb/
 obsolete/
 miscellaneous/
 archive/
-data/
+data/*
+logs/*
 examples/
 results/
-prediction/
+prediction/*
 weights/
 temp/
 tmp/
@@ -202,3 +203,8 @@ model_spectra/transformer_*
 model_spectra/model_*/
 prosit_model/model_spectra/
 cospred_model/checkpoints*
+
+# exception to the make rule for empty directories
+!prediction/.gitkeep 
+!data/.gitkeep
+!logs/.gitkeep

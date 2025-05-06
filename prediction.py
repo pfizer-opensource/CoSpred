@@ -769,7 +769,7 @@ def main():
     warnings.filterwarnings("ignore")
 
     # Configure logging
-    log_file_predict = os.path.join(constants_location.PREDICT_DIR, "cospred_predict.log")
+    log_file_predict = os.path.join(constants_location.LOGS_DIR, "cospred_predict.log")
     logging.basicConfig(
         filename=log_file_predict,
         filemode="w",  # Overwrite the log file each time the script runs
@@ -783,7 +783,13 @@ def main():
     formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
     console.setFormatter(formatter)
     logging.getLogger().addHandler(console)
-    
+
+    # create prediction directory if it does not exist
+    predict_dir = constants_location.PREDICT_DIR
+    if not os.path.exists(predict_dir):
+        os.makedirs(predict_dir, exist_ok=True)
+    logging.info("Pediction result directory created: {}".format(predict_dir))
+
     start_time = time.time()
 
     # Code to be timed
@@ -804,15 +810,9 @@ def main():
 
     model_dir = constants_location.MODEL_DIR
     predict_format = constants_location.PREDICT_FORMAT
-    predict_dir = constants_location.PREDICT_DIR
     predict_csv = constants_location.PREDICTCSV_PATH
     predict_hdf5 = constants_location.PREDDATA_PATH
     chunk_dir = constants_location.PREDDATASET_PATH     # chunk file path
-
-    # create prediction directory if it does not exist
-    if not os.path.exists(predict_dir):
-        os.makedirs(predict_dir, exist_ok=True)
-    logging.info("Pediction result directory created: {}".format(predict_dir))
 
     ### Initialize to store model and session ###
     if args.bigru is True:

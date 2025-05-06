@@ -52,3 +52,6 @@ PREDICT_LIB_FILENAME = "speclib_prediction"
 
 # plot
 PLOT_DIR = PREDICT_DIR + "plot/"
+
+# logging
+LOGS_DIR = BASE_PATH + 'logs/'

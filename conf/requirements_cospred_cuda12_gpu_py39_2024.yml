@@ -4,6 +4,7 @@ channels:
   - conda-forge
   - huggingface
   - nvidia
+  - defaults
   - anaconda
 dependencies:
   - _libgcc_mutex=0.1=main
@@ -75,7 +76,7 @@ dependencies:
   - libcufft=11.0.2.4=0
   - libcufile=1.8.1.2=0
   - libcurand=10.3.4.101=0
-  - libcurl
+  - libcurl=8.4.0=h251f7ec_0
   - libcusolver=11.4.4.55=0
   - libcusparse=12.0.2.55=0
   - libdeflate=1.17=h5eee18b_1

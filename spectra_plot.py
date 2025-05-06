@@ -182,7 +182,7 @@ def main():
     warnings.filterwarnings("ignore")
 
     # Configure logging
-    log_file_plot = os.path.join(constants_location.PREDICT_DIR, "cospred_plot.log")
+    log_file_plot = os.path.join(constants_location.LOGS_DIR, "cospred_plot.log")
     logging.basicConfig(
         filename=log_file_plot,
         filemode="w",  # Overwrite the log file each time the script runs

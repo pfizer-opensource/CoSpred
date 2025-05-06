@@ -391,7 +391,7 @@ def main():
     warnings.filterwarnings("ignore")
 
     # Configure logging
-    log_file_prep = os.path.join(constants_location.PREDICT_DIR, "cospred_prep.log")
+    log_file_prep = os.path.join(constants_location.LOGS_DIR, "cospred_prep.log")
     logging.basicConfig(
         filename=log_file_prep,
         filemode="w",  # Overwrite the log file each time the script runs
