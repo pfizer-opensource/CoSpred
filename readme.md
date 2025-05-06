@@ -24,7 +24,7 @@ To best test and experience usage of the software, we recommend to use docker en
 
 ### 2. Setup the computing environment
 
-- Git clone the repo, download the pre-trained model `pretrained_models.zip` and `example.zip` from [FigShare](https://figshare.com/s/8a60e7017cd82db9a1b7), and store under `CoSpred/demo/data`.
+- Git clone the repo, download the pre-trained model `pretrained_models.zip` and `example.zip` from [FigShare](https://figshare.com/s/8a60e7017cd82db9a1b7), create a data folder `CoSpred/demo/data`, and store two zip files there.
 
 #### Option 1: Pull the pre-built docker image
 ```shell
@@ -37,7 +37,7 @@ This [Code Ocean](https://codeocean.com) Compute Capsule will allow you to repro
 
 > If there's any software requiring a license that needs to be run during the build stage, you'll need to make your license available. 
 
-In your terminal, navigate to the demo folder where you've extracted the demo example data and execute the following command:
+In your terminal, navigate to the `demo` folder with the example data in `demo/data` that you've extracted before, and execute the following command:
 
 ```shell
 cd environment && docker build . --tag cospred_docker; cd ..
@@ -46,7 +46,7 @@ cd environment && docker build . --tag cospred_docker; cd ..
 
 ### 3. Run the docker container to reproduce the results
 
-In your terminal, navigate to the demo folder where you've extracted the capsule and execute the following command, run the docker container using the image just built in the previous session named `cospred_docker`, adjust parameters as needed (e.g. fot the machine that doesn't have GPU, remove the option flag `--gpus all`).
+In your terminal, navigate to the `demo` folder with the example data in `demo/data` that you've extracted before, where you've extracted the capsule and execute the following command, run the docker container using the image just built in the previous session named `cospred_docker`, adjust parameters as needed (e.g. fot the machine that doesn't have GPU, remove the option flag `--gpus all`).
 
 ```shell
 docker run --platform linux/amd64 --rm --gpus all \

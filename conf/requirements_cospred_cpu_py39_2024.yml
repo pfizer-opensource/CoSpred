@@ -1,10 +1,10 @@
 name: cospred_cpu_py39
 channels:
   - pytorch
+  - conda-forge
   - bioconda
   - huggingface
   - defaults
-  - conda-forge
 dependencies:
   - abseil-cpp=20211102.0=h96cf925_1
   - aiohttp=3.8.5=py39hdc70f33_0
