@@ -25,7 +25,7 @@ import params.constants_location as constants_location
 
 import io_cospred
 import model as model_lib
-import rawfile2hdf_prosit, rawfile2hdf_cospred
+import rawfile2hdf_byion, rawfile2hdf_cospred
 
 from prosit_model import sanitize, tensorize
 from prosit_model.converters import maxquant, msp
@@ -664,7 +664,7 @@ def predict(predict_csv, predict_dir, predict_format, predict_hdf5, predict_ds,
             if not flag_resume:
                 ### Iterate through Arrow chunks if flag_chunk is True ###           
                 logging.info("Processing dataset in Chunks ...")
-                for chunkname in os.listdir(arrow_chunk_dir):
+                for chunkname in sorted(os.listdir(arrow_chunk_dir)):
                     if chunkname.startswith("chunk_") and (not chunkname.endswith(".h5")):
                         chunk_dict, chunk_ds, chunk_df = arrowchunk_to_chunkdict(
                             arrow_chunk_dir, chunkname, predict_hdf5_dir, flag_evaluate, flag_fullspectrum)
@@ -704,8 +704,14 @@ def predict(predict_csv, predict_dir, predict_format, predict_hdf5, predict_ds,
                 logging.info("Using Preprocessed Chunks ...")
 
             # Combine all chunk files into a single HDF5 file
-            combined_dict = concatenate_hdf5_chunk(predict_chunk_dir, predict_result_file, flag_resume)
-
+            if flag_chunk:
+                # A combined HDF5 is created but not load to memory
+                concatenate_hdf5_chunk(predict_chunk_dir, predict_result_file, flag_resume)
+                combined_dict = {}
+            else:
+                combined_dict = concatenate_hdf5_chunk(predict_batch_dir, predict_hdf5, 
+                                                 predict_result_file, combined_batch_file,
+                                                 flag_fullspectrum)
             # # remove all chunk files after combining, except for the combined file
             # for filename in os.listdir(predict_chunk_dir):
             #     file_path = os.path.join(predict_chunk_dir, filename)
@@ -716,14 +722,31 @@ def predict(predict_csv, predict_dir, predict_format, predict_hdf5, predict_ds,
             # Combine all spectra library chunk files into a single file
             with open(speclib_file, 'w') as outfile:
                 logging.info(f"Combining predicted spectra library files from: {predict_lib_dir}")
-                for speclib_chunk in os.listdir(predict_lib_dir):
-                    if speclib_chunk.startswith(speclib_filename+"_chunk") and (speclib_chunk.endswith(".msp") or speclib_chunk.endswith(".txt")):
-                        speclib_chunk_path = os.path.join(predict_lib_dir, speclib_chunk)
-                        logging.info(f"Combining file path: {speclib_chunk_path}")
-                        with open(speclib_chunk_path, 'r') as infile:
-                            outfile.write(infile.read())
-                            # os.remove(speclib_chunk_path)     # remove the chunk file after combining
+                speclib_chunks = [f for f in os.listdir(predict_lib_dir) if f.startswith(speclib_filename+"_chunk") and (f.endswith(".msp") or f.endswith(".txt"))]
+                # Step 2: Sort the files alphabetically
+                speclib_chunks.sort()
+                total_chunks = len(speclib_chunks)
+
+                for idx, speclib_chunk in enumerate(speclib_chunks, start=1):
+                    speclib_chunk_path = os.path.join(predict_lib_dir, speclib_chunk)
+                    logging.info(f"Combining file {idx} out of {total_chunks}: {speclib_chunk_path}")
+                    with open(speclib_chunk_path, 'r') as infile:
+                        outfile.write(infile.read())
+                        # os.remove(speclib_chunk_path)  # Uncomment to remove the chunk file after combining
             logging.info(f"[USER] All predicted spectra library files were combined into: {speclib_file}")
+
+            # # Combine all spectra library chunk files into a single file
+            # with open(speclib_file, 'w') as outfile:
+            #     logging.info(f"Combining predicted spectra library files from: {predict_lib_dir}")
+            #     for speclib_chunk in os.listdir(predict_lib_dir):
+            #         if speclib_chunk.startswith(speclib_filename+"_chunk") and (speclib_chunk.endswith(".msp") or speclib_chunk.endswith(".txt")):
+            #             speclib_chunk_path = os.path.join(predict_lib_dir, speclib_chunk)
+            #             logging.info(f"Combining file path: {speclib_chunk_path}")
+            #             logging.info(f"Combining file {idx} out of {total_chunks}: {speclib_chunk_path}")
+            #             with open(speclib_chunk_path, 'r') as infile:
+            #                 outfile.write(infile.read())
+            #                 # os.remove(speclib_chunk_path)     # remove the chunk file after combining
+            # logging.info(f"[USER] All predicted spectra library files were combined into: {speclib_file}")
             
             # Evaluate predictions if flag_evaluate is True
             if flag_evaluate is True and len(combined_dict.keys() > 0):
@@ -884,7 +907,7 @@ def main():
                 generateCSV_wSeq(usimgffile, reformatmgffile, csvfile, annotation_results,
                                 predict_csv, temp_dir)
                 # transform byion test peptides list to hdf5
-                dataset = rawfile2hdf_prosit.constructDataset_byion(predict_csv)
+                dataset = rawfile2hdf_byion.constructDataset_byion(predict_csv)
                 io_cospred.to_hdf5(dataset, predict_hdf5)
         else:
             logging.error(f"Not sufficient inputs were found. Please provide valid files.")

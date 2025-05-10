@@ -7,8 +7,12 @@ TESTFILE = DATA_DIR + FILE_NAME + '_test.mgf'
 
 # preprocess
 PSM_PATH = DATA_DIR + FILE_NAME + "_PSMs.txt"
+MAPPINGFILE_PATH = DATA_DIR + FILE_NAME + "_InputFiles.txt"
 MGF_PATH = DATA_DIR + FILE_NAME + ".mgf"
 MZML_PATH = DATA_DIR + FILE_NAME + ".mzML"
+MGF_DIR = DATA_DIR + "mgf/"
+MZML_DIR = DATA_DIR + "mzml/"
+
 
 REFORMAT_USITITLE_PATH = DATA_DIR + FILE_NAME + ".mgf"
 REFORMAT_TRAIN_USITITLE_PATH = DATA_DIR + "train_usi.mgf"

@@ -115,7 +115,7 @@ def from_msp_propel(ofile):
                             # one record per peptide_ce_modstring
                             peptide_ce_modstring = '_'.join([tmp_dict['Name'], str(ce), mod])
                             final_dict[peptide_ce_modstring] = {}
-                            batch_dict[peptide_ce_modstring]['precursor'] = tmp_dict['Precursor']
+                            final_dict[peptide_ce_modstring]['precursor'] = tmp_dict['Precursor']
                             final_dict[peptide_ce_modstring]['mz'] = mz
                             final_dict[peptide_ce_modstring]['intensity'] = intensity
                             final_dict[peptide_ce_modstring]['anno'] = anno

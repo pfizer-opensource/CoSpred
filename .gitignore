@@ -201,6 +201,7 @@ models/
 model_spectra/prosit_*
 model_spectra/transformer_*
 model_spectra/model_*/
+model_spectra/exetime.txt
 prosit_model/model_spectra/
 cospred_model/checkpoints*
 

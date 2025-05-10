@@ -129,7 +129,6 @@ def constructCospredVec(mz_arr, intensity_arr):
 
 
 def parseSeq(seq, fixmod_proforma, varmod_proforma):
-    import re
     nonmod_seq = seq.upper()
     nonmod_seq = re.sub('[^A-Z]', '', nonmod_seq)
     mod_num = 0

@@ -95,7 +95,7 @@ Msconvert can be run using GUI version of the software on windows computer or ca
 * OPTION 1: The MGF file doesn't contain sequence information
     * Split the dataset into train and test set. (About 15mins for 300k spectra)
 
-    5000 spectra will be randomly selected for test by default, which could be modified in the script. `example_train.mgf` and `example_test.mgf` will be generated from this step. `rawfile2hdf_prosit.py` (preparing dataset with b/y ion annotation) and `rawfile2hdf_cospred.py` (preparing dataset for full spectrum representation) are the scripts for this purpose. (About 2 minitues for the example dataset)
+    20% spectra will be randomly selected for test by default, which could be modified in the script. `example_train.mgf` and `example_test.mgf` will be generated from this step. `rawfile2hdf_byion.py` (preparing dataset with b/y ion annotation) and `rawfile2hdf_cospred.py` (preparing dataset for full spectrum representation) are the scripts for this purpose. (About 2 minitues for the example dataset)
 
     ```bash
     python rawfile2hdf_cospred.py -w split
@@ -106,8 +106,8 @@ Msconvert can be run using GUI version of the software on windows computer or ca
     Pyteomics is used to parse annotations of y and b ions and their fragments charges from MZML and MGF, and report to annotated MGF files for downstream Prosit application. Note that to parse the input file correctly, you will likely need to adjust regex routine according to the specific MGF format you are using. (About 1 hour for the example dataset)
 
     ```bash
-    python rawfile2hdf_prosit.py -w train
-    python rawfile2hdf_prosit.py -w test
+    python rawfile2hdf_byion.py -w train
+    python rawfile2hdf_byion.py -w test
     ```
 
     * OPTION 1.2: Pair database search result with MGF spectrum, reformat to full MSMS using bins. (About 2 minitues for the example dataset)
@@ -130,15 +130,16 @@ At the end, a few files will be generated. `train.hdf5` and `test.hdf5` are inpu
 
 ### 4. In-house training procedure
 
-`training_cospred.py` is the script for customized training. Workflows could be selected by arguments, including 1) `-t`: fine-tuning / continue training the existing model; 2) `-f`: opt in full MS/MS spectrum model instead of B/Y ions; 3) `-c`: chucking the input dataset (to prevent memory overflow by large dataset); 4) `-p`: opt in for BiGRU model instead of Transformer.
+`training_cospred.py` is the script for customized training. Workflows could be selected by arguments, including 1) `-t`: fine-tuning / continue training the existing model; 2) `-f`: opt in full MS/MS spectrum model instead of B/Y ions; 3) `-c`: chunking the input dataset (to prevent memory overflow by large dataset); 4) `-b`: opt in for BiGRU model instead of Transformer.
 
 #### Representative training workflows
 
 ```bash
-python training_cospred.py -p   # Training B/Y ion spectrum prediction using BiGRU architecture.
+python training_cospred.py -b   # Training B/Y ion spectrum prediction using BiGRU architecture.
 python training_cospred.py      # Training B/Y ion spectrum prediction using Transformer architecture.
-python training_cospred.py -pf   # Training full spectrum prediction using BiGRU architecture. 
+python training_cospred.py -bf   # Training full spectrum prediction using BiGRU architecture. 
 python training_cospred.py -f   # Training full spectrum prediction using Transformer architecture. 
+python training_cospred.py -bft   # Fine-tuning full spectrum prediction using BiGRU architecture with pre-trained weights.
 ```
 
 During the training procedure under each epoch, model weights files will be auto-generated under the folder `model_spectra`. Naming of files will be like below,
@@ -146,6 +147,50 @@ During the training procedure under each epoch, model weights files will be auto
 * For full spectrum, BiGRU model: `prosit_full_[YYYYMMDD]_[HHMMSS]_epoch[integer]_loss[numeric].hdf5`
 * For B/Y ion, Transformer model: `transformer_byion_[YYYYMMDD]_[HHMMSS]_epoch[integer]_loss[numeric].pt`
 * For full spectrum, Transformer model: `transformer_full_[YYYYMMDD]_[HHMMSS]_epoch[integer]_loss[numeric].pt`
+
+#### Note: Usage for novel modification
+
+To fine-tune the foundation model or re-train the model, following scripts and parameters needs to be modified.
+
+1. Verify the Modification Format:
+* Ensure that the modification (DTBIA) is properly mapped in your `constants.py` file. 
+```python
+MODIFICATION = {
+    "DTBIA": 296.185,  # Desthiobiotin
+}
+AMINO_ACID["C(DTBIA)"] = AMINO_ACID["C"] + MODIFICATION["DTBIA"]
+```
+2. Convert the Sequence to a Pyteomics-Compatible Format:
+* Use the VARMOD_PROFORMA dictionary in `constants.py` to map the modification (DTBIA) to a format that pyteomics can parse. For example:
+```python
+VARMOD_PROFORMA = {
+    'C\\+296.185': 'C[DTBIA]',
+    # Other mappings...
+}
+```
+3. Update the Code in `msp.py`:
+* Modify the code in msp.py to preprocess the sequence before calculating the mass:
+
+1. In `msp.py`, update the following code chunk
+``` python
+def generate_aa_comp():    
+    # ... previous code block
+    # Desthiobiotin: H(24) C(14) O(3) N(4)
+    aa_comp["dtbiaC"] = aa_comp["C"] + {'H': 24, 'C': 14, 'O': 3, 'N': 4}
+    return aa_comp
+
+class Spectrum(object):
+    def __init__(
+        # codes
+    ):
+      self.precursor_mass = pyteomics.mass.calculate_mass(
+                  # previous codes
+                  self.sequence.replace("C(DTBIA)", "dtbiaC"), # Desthiobiotin
+                  # other codes
+              )
+    # other codes
+```
+
 
 ### 5. Inference
 

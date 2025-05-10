@@ -1,9 +1,9 @@
 VAL_SPLIT = 0.8
 
-CHUNKSIZE = 20000
+CHUNKSIZE = 2000
 TRAIN_EPOCHS = 200
 TRAIN_BATCH_SIZE = 1024
-PRED_BATCH_SIZE = 4096
+PRED_BATCH_SIZE = 2048
 PRED_BAYES = False
 PRED_N = 100
 
@@ -11,8 +11,7 @@ TOLERANCE_FTMS = 25
 TOLERANCE_ITMS = 0.35
 TOLERANCE_TRIPLETOF = 0.5
 
-TOLERANCE = {"FTMS": (25, "ppm"), "ITMS": (
-    0.35, "da"), "TripleTOF": (50, "ppm")}
+TOLERANCE = {"FTMS": (25, "ppm"), "ITMS": (0.35, "da"), "TripleTOF": (50, "ppm")}
 
 BIN_MAXMZ = 1500
 BIN_SIZE = 0.5
@@ -43,10 +42,12 @@ ALPHABET = {
     "V": 18,
     "W": 19,
     "Y": 20,
-    "M(ox)": 21,
-    "S(ph)": 22,
-    "T(ph)": 23,
-    "Y(ph)": 24,
+    "M(Oxidation)": 21,
+    "S(Phospho)": 22,
+    "T(Phospho)": 23,
+    "Y(Phospho)": 24,
+    "C(Carbamidomethyl)": 25,
+    "C(DTBIA)": 26,
 }
 ALPHABET_S = {integer: char for char, integer in ALPHABET.items()}
 MAX_ALPHABETSIZE = 100
@@ -63,19 +64,66 @@ FORWARD = {"a", "b", "c"}
 BACKWARD = {"x", "y", "z"}
 
 # Amino acids
-MODIFICATION = {
-    "CAM": 57.0214637236,  # Carbamidomethylation (CAM)
-    "OX": 15.99491,  # Oxidation
-    "PH": 79.966331
+# MODIFICATION_MASS = {
+#     "Carbamidomethyl": 57.0214637236,  # Carbamidomethylation (CAM)
+#     "Oxidation": 15.99491,  # Oxidation
+#     "Phospho": 79.966331,    # Phosphorylation
+#     "DTBIA": 296.185,       # Desthiobiotin
+# }
+
+# MODIFICATION = {
+#     # 'M+15.995': 'M[Oxidation]',
+#     # 'S+79.966': 'S[Phospho]',
+#     # 'T+79.966': 'T[Phospho]',
+#     # 'Y+79.966': 'Y[Phospho]',
+#     # 'C(CAM)': 'C[Carbamidomethyl]',
+#     # 'C+57.021': 'C[Carbamidomethyl]',
+#     # 'C(DTBIA)': 'C[+296.185]',
+#     # 'C(+296.185)': 'C[+296.185]',
+#     'M(Oxidation)': 'M[Oxidation]',
+#     'S(Phospho)': 'S[Phospho]',
+#     'T(Phospho)': 'T[Phospho]',
+#     'Y(Phospho)': 'Y[Phospho]',
+#     'C(Carbamidomethyl)': 'C[Carbamidomethyl]',
+#     'C(DTBIA)': 'C[+296.185]',
+# }
+
+# Customed modification
+MODIFICATION_COMPOSITION = {
+    'M(Oxidation)': {'O': 1},  # Oxidation
+    'S(Phospho)': {'H': 1, 'P': 1, 'O': 3},    # Phosphorylation
+    'T(Phospho)': {'H': 1, 'P': 1, 'O': 3},    # Phosphorylation
+    'Y(Phospho)': {'H': 1, 'P': 1, 'O': 3},    # Phosphorylation
+    'C(Carbamidomethyl)': {'H': 3, 'C': 2, 'O': 1, 'N': 1},     # Carbamidomethylation (CAM)
+    'C(DTBIA)': {'H': 24, 'C': 14, 'O': 3, 'N': 4},     # Desthiobiotin
+    'C(+296.185)': {'H': 24, 'C': 14, 'O': 3, 'N': 4},     # Desthiobiotin
+}
+
+VARMOD_PROFORMA = {
+    # Oxidation
+    'M(Oxidation)': 'M[Oxidation]',
+    'M+15.995': 'M[Oxidation]',
+
+    # Phosphorylation
+    'S(Phospho)': 'S[Phospho]',
+    'T(Phospho)': 'T[Phospho]',
+    'Y(Phospho)': 'Y[Phospho]',
+    'S+79.966': 'S[Phospho]',
+    'T+79.966': 'T[Phospho]',
+    'Y+79.966': 'Y[Phospho]',
+
+    # Carbamidomethylation
+    'C(Carbamidomethyl)': 'C[Carbamidomethyl]',
+    'C+57.021': 'C[Carbamidomethyl]',
+
+    # Desthiobiotin
+    'C(DTBIA)': 'C[+296.185]',
+    'C+296.185': 'C[+296.185]',
 }
 
 FIXMOD_PROFORMA = {
-    'C\\+57.021': 'C'
-}
-VARMOD_PROFORMA = {
-    'S\\+79.966': 'S[Phospho]',
-    'T\\+79.966': 'T[Phospho]',
-    'Y\\+79.966': 'Y[Phospho]',
+    'C(Carbamidomethyl)': 'C[Carbamidomethyl]',
+    'C+57.021': 'C[Carbamidomethyl]'
 }
 
 AMINO_ACID = {
@@ -91,7 +139,8 @@ AMINO_ACID = {
     "N": 114.042927,
     "Y": 163.063329,
     "E": 129.042593,
-    "C": 103.009185 + MODIFICATION["CAM"],
+    # "C": 103.009185 + MODIFICATION["CAM"],
+    "C": 103.009185,
     "F": 147.068414,
     "I": 113.084064,
     "A": 71.037114,
@@ -101,10 +150,13 @@ AMINO_ACID = {
     "D": 115.026943,
     "K": 128.094963,
 }
-AMINO_ACID["M(ox)"] = AMINO_ACID["M"] + MODIFICATION["OX"]
-AMINO_ACID["S(ph)"] = AMINO_ACID["S"] + MODIFICATION["PH"]
-AMINO_ACID["T(ph)"] = AMINO_ACID["T"] + MODIFICATION["PH"]
-AMINO_ACID["Y(ph)"] = AMINO_ACID["Y"] + MODIFICATION["PH"]
+# AMINO_ACID["M(ox)"] = AMINO_ACID["M"] + MODIFICATION["OX"]
+# AMINO_ACID["S(ph)"] = AMINO_ACID["S"] + MODIFICATION["PH"]
+# AMINO_ACID["T(ph)"] = AMINO_ACID["T"] + MODIFICATION["PH"]
+# AMINO_ACID["Y(ph)"] = AMINO_ACID["Y"] + MODIFICATION["PH"]
+# AMINO_ACID["C(CAM)"] = AMINO_ACID["C"] + MODIFICATION["CAM"]
+# AMINO_ACID["C(DTBIA)"] = AMINO_ACID["C"] + MODIFICATION["DTBIA"]
+
 
 # Atomic elements
 PROTON = 1.007276467

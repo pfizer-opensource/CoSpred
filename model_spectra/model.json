@@ -394,7 +394,7 @@
                "name": "repeat",
                "trainable": true,
                "dtype": "float32",
-               "n": 100
+               "n": 29
             },
             "name": "repeat",
             "inbound_nodes": [
@@ -519,7 +519,7 @@
                "name": "dense_1",
                "trainable": true,
                "dtype": "float32",
-               "units": 100,
+               "units": 29,
                "activation": "softmax",
                "use_bias": true,
                "kernel_initializer": {
@@ -610,7 +610,7 @@
                      "name": "dense_2",
                      "trainable": true,
                      "dtype": "float32",
-                     "units": 30,
+                     "units": 6,
                      "activation": "linear",
                      "use_bias": true,
                      "kernel_initializer": {

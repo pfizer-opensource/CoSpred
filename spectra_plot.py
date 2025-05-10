@@ -18,7 +18,7 @@ matplotlib.use('Agg')
 # single plot
 def singleplot(feature, predict_mgf, plot_dir, min_mz=0, min_intensity=0.02):
     # Read the spectrum from an MGF file using Pyteomics.
-    spectrum_dict = mgf.get_spectrum(predict_mgf, feature)
+    spectrum_dict = mgf.get_spectrum(predict_mgf, plot_sequence(feature))
 
     identifier = spectrum_dict['params']['title']
     precursor_mz = spectrum_dict['params']['pepmass'][0]
@@ -26,8 +26,9 @@ def singleplot(feature, predict_mgf, plot_dir, min_mz=0, min_intensity=0.02):
     mz = spectrum_dict['m/z array']
     intensity = spectrum_dict['intensity array']
     retention_time = float(spectrum_dict['params']['rtinseconds'])
-    peptide = spectrum_dict['params']['seq'].replace("(ox)", "[Oxidation]")\
-        .replace("(ph)", "[Phospho]")
+    # peptide = spectrum_dict['params']['seq'].replace("(ox)", "[Oxidation]")\
+    #     .replace("(ph)", "[Phospho]")
+    peptide = spectrum_dict['params']['seq']
 
     # Create the MS/MS spectrum.
     spectrum = sus.MsmsSpectrum(identifier, precursor_mz, precursor_charge, mz, intensity,
@@ -58,6 +59,9 @@ def singleplot(feature, predict_mgf, plot_dir, min_mz=0, min_intensity=0.02):
 
 
 def mirroplot_twopeptides(peplist, predict_mgf, plot_dir, min_mz=0, min_intensity=0.02):
+    # convert peptide list to proforma
+    peplist = [plot_sequence(x) for x in peplist]
+
     spectra = []
     for spectrum_dict in mgf.read(predict_mgf):
         if peplist[0] in spectrum_dict['params']['title'] or peplist[1] in spectrum_dict['params']['title']:
@@ -67,9 +71,10 @@ def mirroplot_twopeptides(peplist, predict_mgf, plot_dir, min_mz=0, min_intensit
             mz = spectrum_dict['m/z array']
             intensity = spectrum_dict['intensity array']
             retention_time = float(spectrum_dict['params']['rtinseconds'])
-            peptide = spectrum_dict['params']['seq'].replace("(ox)", "[Oxidation]")\
-                .replace("(ph)", "[Phospho]")
-
+            # peptide = spectrum_dict['params']['seq'].replace("(ox)", "[Oxidation]")\
+            #     .replace("(ph)", "[Phospho]")
+            peptide = spectrum_dict['params']['seq']
+            
             # Create the MS/MS spectrum.
             spectrum = sus.MsmsSpectrum(identifier, precursor_mz,
                                         precursor_charge, mz, intensity,
@@ -112,22 +117,23 @@ def mirroplot_twosets(peplist, predict_mgf, reference_spectra, plot_dir, min_mz=
         for title in peplist:
             spectra = []
             try:
-                pred_dict = mgf.get_spectrum(predict_mgf, title)
+                pred_dict = mgf.get_spectrum(predict_mgf, plot_sequence(title))
                 ref_dict = mgf.get_spectrum(reference_spectra, title)
                 if (ref_dict is None or pred_dict is None):
                     next
                 pair = [pred_dict, ref_dict]
 
                 for spectrum_dict in pair:
-                    identifier = spectrum_dict['params']['title']
+                    identifier = plot_sequence(spectrum_dict['params']['title'])
                     precursor_mz = spectrum_dict['params']['pepmass'][0]
                     precursor_charge = spectrum_dict['params']['charge'][0]
                     mz = spectrum_dict['m/z array']
                     intensity = spectrum_dict['intensity array']
                     retention_time = float(
                         spectrum_dict['params']['rtinseconds'])
-                    peptide = spectrum_dict['params']['seq'].replace("(ox)", "[Oxidation]")\
-                        .replace("(ph)", "[Phospho]")
+                    # peptide = spectrum_dict['params']['seq'].replace("(ox)", "[Oxidation]")\
+                    #     .replace("(ph)", "[Phospho]")
+                    peptide = plot_sequence(spectrum_dict['params']['seq'])
 
                     # Create the MS/MS spectrum.
                     spectrum = sus.MsmsSpectrum(identifier, precursor_mz,
@@ -175,6 +181,33 @@ def peplist_from_csv(csvfile):
     return (peptidelist)
 
 
+def plot_sequence(sequence):
+    """
+    >>> plot_sequence("C(DTBIA)M(Oxidation)S(Phospho)T(Phospho)Y(Phospho)")
+    'C[+296.185]M[Oxidation]S[Phospho]T[Phospho]Y[Phospho]'
+    """
+    # To plot byion, replace the modified amino acids with their corresponding proforma representation
+    mod_dict = constants.VARMOD_PROFORMA
+    for key, replacement in mod_dict.items():
+        try:
+            sequence = sequence.replace(key, replacement)
+        except re.error as e:
+            print(f"Error processing key '{key}': {e}")
+    return sequence
+
+
+# def plot_sequence(sequence):
+#     mod_dict = constants.MODIFICATION
+#     for modified_aa, _ in constants.MODIFICATION_COMPOSITION.items():
+#         match = re.match(r"([A-Z])\(([A-Za-z]+.*)\)", modified_aa)
+#         if match:
+#             amino_acid = match.group(1)  # Extracts 'C'
+#             modification = match.group(2)  # Extracts 'DTBIA'
+#             # example: modified_aa = "C(DTBIA)" -> "C[+296.185]"
+#             sequence = sequence.replace(modified_aa, f'{amino_acid}[+{mod_dict[modification.upper()]}]')
+#     return sequence
+
+
 def main():
     # Suppress warning message of tensorflow compatibility
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
@@ -201,7 +234,7 @@ def main():
     parser.parse_args()
 
     plot_dir = constants_location.PLOT_DIR
-    predict_csv = constants_location.PREDICTCSV_PATH
+    predict_csv = constants_location.PREDICT_ORIGINAL
     predict_format = constants_location.PREDICT_FORMAT
     predict_dir = constants_location.PREDICT_DIR
     reference_spectra = constants_location.REFORMAT_TEST_PATH
@@ -216,9 +249,11 @@ def main():
     if not os.path.exists(plot_dir):
         os.makedirs(plot_dir)
 
-    
     # get list of peptides for plotting
     peplist = peplist_from_csv(peptidelistfile)
+    # # convert peptide list to proforma
+    # peplist = [plot_sequence(x) for x in peplist]
+    # print("Proforma Peptide List: ", peplist)
 
     # store msp files to dictionary and convert to MGF from prosit prediction
     spectrum_prosit = msp_parser.from_msp_prosit(predict_msp)

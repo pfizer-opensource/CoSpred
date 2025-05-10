@@ -1,34 +1,67 @@
 import numpy as np
 import pyteomics
-from pyteomics import mass
+import re
 
 import params.constants as constants
 from prosit_model import utils
 
 
+def preprocess_sequence(sequence):
+    for modified_aa, _ in constants.MODIFICATION_COMPOSITION.items():
+        # Extract the amino acid and modification
+        match = re.match(r"([A-Z])\((.+)\)", modified_aa)
+        if match:
+            amino_acid = match.group(1)         # Extracts 'C'
+            modification = match.group(2)       # Extracts 'DTBIA'
+            # example: modified_aa = "C(DTBIA)" -> "dtbiaC"
+            sequence = sequence.replace(modified_aa, f'{modification.lower()}{amino_acid}')
+    return sequence
+
+
+def plot_sequence(sequence):
+    """
+    >>> plot_sequence("C(DTBIA)M(Oxidation)S(Phospho)T(Phospho)Y(Phospho)")
+    'C[+296.185]M[Oxidation]S[Phospho]T[Phospho]Y[Phospho]'
+    """
+    # To plot byion, replace the modified amino acids with their corresponding proforma representation
+    mod_dict = constants.VARMOD_PROFORMA
+    for key, replacement in mod_dict.items():
+        try:
+            sequence = sequence.replace(key, replacement)
+        except re.error as e:
+            print(f"Error processing key '{key}': {e}")
+    
+    # mod_dict = constants.MODIFICATION_MASS
+    # for modified_aa, _ in constants.VARMOD_PROFORMA.items():
+    #     # Extract the amino acid and modification
+    #     match = re.match(r"([A-Z])\((.+)\)", modified_aa)
+    #     if match:
+    #         amino_acid = match.group(1)  # Extracts 'C'
+    #         modification = match.group(2)  # Extracts 'DTBIA'
+    #         # example: modified_aa = "C(DTBIA)" -> "C[+296.185]"
+    #         sequence = sequence.replace(modified_aa, f'{amino_acid}[+{mod_dict[modification.upper()]}]')
+    
+    return sequence
+
+
 def generate_aa_comp():
     """
-    >>> aa_comp = generate_aa_comp()
-    >>> aa_comp["M"]
-    Composition({'H': 9, 'C': 5, 'S': 1, 'O': 1, 'N': 1})
-    >>> aa_comp["Z"]
-    Composition({'H': 9, 'C': 5, 'S': 1, 'O': 2, 'N': 1})
+    Generate the amino acid composition dictionary using definitions from constants.py.
     """
-    db = pyteomics.mass.Unimod()
+    # db = pyteomics.mass.Unimod()
     aa_comp = dict(pyteomics.mass.std_aa_comp)
-    # oxidation
-    s = db.by_title("Oxidation")["composition"]
-    aa_comp["Z"] = aa_comp["M"] + s
-    # Carbamidomethyl
-    s = db.by_title("Carbamidomethyl")["composition"]
-    aa_comp["C"] = aa_comp["C"] + s
-    # phospho
-    s = db.by_title('Phospho')['composition']
-    aa_comp["pS"] = aa_comp["S"] + s
-    aa_comp['pT'] = aa_comp["T"] + s
-    aa_comp['pY'] = aa_comp["Y"] + s 
-    # mass.calculate_mass('EAEEES(ph)DHN', aa_comp=aa_comp)   # () is not allowed in pyteomics
-    # mass.calculate_mass('EAEEEpSDHN', aa_comp=aa_comp)
+
+    for mod_name, mod_composition in constants.MODIFICATION_COMPOSITION.items():
+        # Extract the amino acid and modification
+        match = re.match(r"([A-Z])\((.+)\)", mod_name)
+        if match:
+            amino_acid = match.group(1)  # Extracts 'C'
+            modification = match.group(2)  # Extracts 'DTBIA'
+            # example: modified_aa = "C(DTBIA)" -> "dtbiaC"
+            mod_key = f"{modification.lower()}{amino_acid}"
+            if mod_key not in aa_comp:
+                aa_comp[mod_key] = aa_comp[amino_acid] + mod_composition
+
     return aa_comp
 
 
@@ -51,13 +84,6 @@ def get_ions():
     return x
 
 
-ox_int = constants.ALPHABET["M(ox)"]
-c_int = constants.ALPHABET["C"]
-s_int = constants.ALPHABET["S(ph)"]
-t_int = constants.ALPHABET["T(ph)"]
-y_int = constants.ALPHABET["Y(ph)"]
-
-
 # Don't see where this function is used
 def calculate_mods(sequence_integer):
     """
@@ -68,33 +94,68 @@ def calculate_mods(sequence_integer):
     >>> calculate_mods(x)
     2
     """
-    return len(np.where((sequence_integer == ox_int) | (sequence_integer == c_int))[0])
+    # Get all modification values from constants.ALPHABET where the key contains "()"
+    mod_ints = [value for key, value in constants.ALPHABET.items() if "(" in key and ")" in key]
+
+    # Count the occurrences of any modification in sequence_integer
+    return len(np.where(np.isin(sequence_integer, mod_ints))[0])
 
 
 def generate_mods_string_tuples(sequence_integer):
+    """
+    Dynamically generate modification tuples using constants.ALPHABET.
+    Only process keys in constants.ALPHABET that contain "()".
+    """
     list_mods = []
-    for mod in [ox_int, c_int, s_int, t_int, y_int]:
-        for position in np.where(sequence_integer == mod)[0]:
-            if mod == c_int:
-                # NOTE: don't count Carbamidomethyl as mod
-                pass
-                # list_mods.append((position, "C", "Carbamidomethyl"))
-            elif mod == ox_int:
-                list_mods.append((position, "M", "Oxidation"))
-            elif mod == s_int:
-                list_mods.append((position, "S", "Phospho"))
-            elif mod == t_int:
-                list_mods.append((position, "T", "Phospho"))
-            elif mod == y_int:
-                list_mods.append((position, "Y", "Phospho"))
-            else:
-                raise ValueError("cant be true")
-    list_mods.sort(key=lambda tup: tup[0])  # inplacewrite
+    for mod_name, mod_int in constants.ALPHABET.items():
+        if "(" in mod_name and ")" in mod_name:  # Process only keys with "()"
+            for position in np.where(sequence_integer == mod_int)[0]:
+                # Extract the amino acid and modification from the mod_name
+                match = re.match(r"([A-Z])\((.+)\)", mod_name)
+                if match:
+                    amino_acid = match.group(1)  # Extracts the amino acid (e.g., 'C')
+                    modification = match.group(2)  # Extracts the modification (e.g., 'DTBIA')
+                    list_mods.append((position, amino_acid, modification))
+                else:
+                    # Handle cases where the mod_name does not follow the "A(mod)" format
+                    list_mods.append((position, mod_name, ""))
+
+    # Sort the list of modifications by position
+    list_mods.sort(key=lambda tup: tup[0])  # Sort in-place by position
     return list_mods
+
+
+# def generate_mods_string_tuples(sequence_integer):
+#     list_mods = []
+#     for mod in [ox_int, c_int, dtbiaC_int, s_int, t_int, y_int]:
+#         for position in np.where(sequence_integer == mod)[0]:
+#             if mod == c_int:
+#                 # NOTE: don't count Carbamidomethyl as mod
+#                 pass
+#                 # list_mods.append((position, "C", "Carbamidomethyl"))
+#             elif mod == ox_int:
+#                 list_mods.append((position, "M", "Oxidation"))
+#             elif mod == s_int:
+#                 list_mods.append((position, "S", "Phospho"))
+#             elif mod == t_int:
+#                 list_mods.append((position, "T", "Phospho"))
+#             elif mod == y_int:
+#                 list_mods.append((position, "Y", "Phospho"))
+#             elif mod == dtbiaC_int:
+#                 list_mods.append((position, "C", "+296.185"))
+#             # elif mod == dtbiaC_int:
+#             #     list_mods.append((position, "C", "DBTIA"))
+#             else:
+#                 raise ValueError("cant be true")
+#     list_mods.sort(key=lambda tup: tup[0])  # inplacewrite
+#     # Example:
+#     # list_mods = [(3, "C", "DTBIA"), (8, "M", "Oxidation"), (10, "S", "Phospho")]
+#     return list_mods
 
 
 def generate_mod_strings(sequence_integer):
     """
+    The title on the MGF. Generate the modification strings for the given sequence integer array.
     >>> x = np.array([1,2,3,1,2,21,0])
     >>> y, z = generate_mod_strings(x)
     >>> y
@@ -211,11 +272,15 @@ class Spectrum(object):
         self.precursor_charge = precursor_charge
         self.aIons = aIons
         self.mod, self.mod_string = generate_mod_strings(sequence_integer)
+
         self.sequence = utils.get_sequence(sequence_integer)
+
+        # print(f"Mass_sequence: {preprocess_sequence(self.sequence)}")
+        # print(f"Plot_sequence: {plot_sequence(self.sequence)}")
+
         # amino acid Z which is defined at the toplevel in generate_aa_comp
         self.precursor_mass = pyteomics.mass.calculate_mass(
-            self.sequence.replace("M(ox)", "Z").replace("S(ph)", "pS")\
-                .replace("T(ph)", "pT").replace("Y(ph)", "pY"),
+            preprocess_sequence(self.sequence),
             aa_comp=aa_comp,
             ion_type="M",
             charge=int(self.precursor_charge),
@@ -229,9 +294,7 @@ class Spectrum(object):
         
         num_peaks = len(self.aIntensity)
         s = s.format(
-            # sequence=self.sequence.replace("M(ox)", "M")\
-            #     .replace("S(ph)", "S").replace("T(ph)", "T").replace("Y(ph)", "Y"),
-            sequence=self.sequence,
+            sequence=plot_sequence(self.sequence),
             charge=self.precursor_charge,
             precursor_mass=self.precursor_mass,
             collision_energy=np.round(self.collision_energy[0], 0),
