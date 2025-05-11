@@ -196,18 +196,6 @@ def plot_sequence(sequence):
     return sequence
 
 
-# def plot_sequence(sequence):
-#     mod_dict = constants.MODIFICATION
-#     for modified_aa, _ in constants.MODIFICATION_COMPOSITION.items():
-#         match = re.match(r"([A-Z])\(([A-Za-z]+.*)\)", modified_aa)
-#         if match:
-#             amino_acid = match.group(1)  # Extracts 'C'
-#             modification = match.group(2)  # Extracts 'DTBIA'
-#             # example: modified_aa = "C(DTBIA)" -> "C[+296.185]"
-#             sequence = sequence.replace(modified_aa, f'{amino_acid}[+{mod_dict[modification.upper()]}]')
-#     return sequence
-
-
 def main():
     # Suppress warning message of tensorflow compatibility
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'

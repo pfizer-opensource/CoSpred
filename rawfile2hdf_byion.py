@@ -447,7 +447,6 @@ def main():
         # hold out N records as testset
         logging.info('[INFO] Workflow: Splitting the dataset ...')        
         io_cospred.splitMGF(mgf_dir, mgffile, trainsetfile, testsetfile, test_ratio=1-VAL_SPLIT)
-        # splitMGF(mgffile, trainsetfile, testsetfile, test_ratio=1-VAL_SPLIT)
         logging.info('[STATUS] Splitting train vs test set ... DONE!')
     # reformat the Spectra
     elif (workflow == 'train' or workflow == 'test'):
@@ -455,7 +454,6 @@ def main():
         dbsearch_df = io_cospred.getPSM(psmfile, mgf_dir, mappingfile)       
         if not os.path.isfile(usimgffile):
             io_cospred.reformatMGF(datasetfile, mzml_dir, dbsearch_df, usimgffile, temp_dir)
-            # io_cospred.reformatMGF(datasetfile, mzmlfile, dbsearch_df, usimgffile, temp_dir)
             annotation_results = annotateMGF(usimgffile, dbsearch_df, temp_dir)
         else:
             annotation_results = pd.read_csv(temp_dir+'annotatedMGF.csv', index_col=False)

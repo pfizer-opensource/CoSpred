@@ -637,9 +637,7 @@ def getPSM(psmfile, mgf_dir, mappingfile=None):
             raise KeyError("Neither 'PEP' nor 'Percolator PEP' column found in dbsearch.")
 
     # Handle mapping file if provided
-    if mappingfile is not None:
-        if not os.path.exists(mappingfile):
-            raise FileNotFoundError(f"Mapping file '{mappingfile}' does not exist.")
+    if os.path.exists(mappingfile):
         mapping_df = pd.read_csv(mappingfile, sep="\t", keep_default_na=False, na_values=["NaN"], index_col=False)
         if "Spectrum File" not in dbsearch.columns and "File ID" in dbsearch.columns:
             dbsearch = dbsearch.merge(
@@ -712,7 +710,7 @@ def getPSM(psmfile, mgf_dir, mappingfile=None):
     # Reset index and recreate title for mzML matching
     dbsearch = dbsearch.reset_index(drop=True)
     dbsearch["title"] = "mzspec:repoID:" + dbsearch["file"] + ":scan:" + dbsearch["scan"].astype(str)
-    
+
     return dbsearch
 
 
@@ -859,19 +857,65 @@ def reformatMGF(mgffile, mzml_dir, dbsearch_df, reformatmgffile, temp_dir):
     # #
     reformatmgffile_temp = os.path.join(temp_dir, time.strftime("%Y%m%d%H%M%S") + '.mgf')
 
-    if not os.path.exists(reformatmgffile_temp):
-        spectra_origin = mgf.read(mgffile)
-        spectra_temp = []
-        for spectrum in spectra_origin:
-            # For MSconvert-generated MGF
-            title_split = spectrum['params']['title'].split(' ')
-            repoid = re.sub('\W$', '', title_split[1].split('"')[1])
-            scan_number = re.sub('\W+', '', title_split[0].split('.')[1])
+    spectra_origin = mgf.read(mgffile)
+    spectra_temp = []
+
+    # Try parsing the first record to determine the correct parser
+    first_spectrum = next(spectra_origin)
+    parser = None
+    try:
+        # Try MSconvert-generated format
+        title_split = first_spectrum['params']['title'].split(' ')
+        repoid = re.sub('\W$', '', title_split[1].split('"')[1])
+        scan_number = re.sub('\W+', '', title_split[0].split('.')[1])
+        parser = "MSconvert"
+        logging.info("Using MSconvert parser.")
+    except Exception as e:
+        logging.warning(f"Failed MSconvert format for title: {first_spectrum['params']['title']}. Trying PD format.")
+        try:
+            # Try PD-generated format
+            title_split = first_spectrum['params']['title'].split(';')
+            repoid = re.sub("\W$", '', title_split[0].split('\\')[-1])
+            scan_number = re.sub('\W+', '', title_split[-1].split('scans')[-1])
+            parser = "PD"
+            logging.info("Using PD parser.")
+        except Exception as e:
+            logging.error(f"Failed both MSconvert and PD formats for title: {first_spectrum['params']['title']}. Error: {e}")
+            raise ValueError("Unable to determine the correct parser for the MGF file.")
+
+    # Process the first spectrum
+    if parser == "MSconvert":
+        repoid = re.sub('\W$', '', title_split[1].split('"')[1])
+        scan_number = re.sub('\W+', '', title_split[0].split('.')[1])
+    elif parser == "PD":
+        repoid = re.sub("\W$", '', title_split[0].split('\\')[-1])
+        scan_number = re.sub('\W+', '', title_split[-1].split('scans')[-1])
+    first_spectrum['params']['title'] = ':'.join(['mzspec', 'repoID', repoid, 'scan', scan_number])
+    first_spectrum['params']['scans'] = scan_number
+    
+    spectra_temp.append(first_spectrum)
+
+    # Process the remaining spectra using the identified parser
+    for spectrum in spectra_origin:
+        try:
+            if parser == "MSconvert":
+                title_split = spectrum['params']['title'].split(' ')
+                repoid = re.sub('\W$', '', title_split[1].split('"')[1])
+                scan_number = re.sub('\W+', '', title_split[0].split('.')[1])
+            elif parser == "PD":
+                title_split = spectrum['params']['title'].split(';')
+                repoid = re.sub("\W$", '', title_split[0].split('\\')[-1])
+                scan_number = re.sub('\W+', '', title_split[-1].split('scans')[-1])
             spectrum['params']['title'] = ':'.join(['mzspec', 'repoID', repoid, 'scan', scan_number])
             spectrum['params']['scans'] = scan_number
             spectra_temp.append(spectrum)
-        mgf.write(spectra_temp, output=reformatmgffile_temp)
-        spectra_origin.close()
+        except Exception as e:
+            logging.error(f"Error processing spectrum with title {spectrum['params']['title']}: {e}")
+            continue
+
+    # Write the reformatted spectra to a temporary MGF file
+    mgf.write(spectra_temp, output=reformatmgffile_temp)
+    spectra_origin.close()
     logging.info('Temp MGF file with new TITLE was created!')
 
     # Add SEQ and CE to the reformatted MGF
@@ -944,12 +988,13 @@ def reformatMGF(mgffile, mzml_dir, dbsearch_df, reformatmgffile, temp_dir):
     # Close mzML readers
     for mzml_reader in mzml_readers.values():
         mzml_reader.close()
+    spectra.close()
 
-    # Remove the temporary MGF file
-    if os.path.exists(reformatmgffile_temp):
-        os.remove(reformatmgffile_temp)
-    else:
-        logging.error("The temp reformatted MGF file does not exist")
+    # # Remove the temporary MGF file
+    # if os.path.exists(reformatmgffile_temp):
+    #     os.remove(reformatmgffile_temp)
+    # else:
+    #     logging.error("The temp reformatted MGF file does not exist")
 
     logging.info(f"Reformatted MGF file written to: {reformatmgffile}")
     return 1
