@@ -1,15 +1,19 @@
 import logging
-from prosit_model import msp_parser
-import params.constants_location as constants_location
-import params.constants as constants
+import shutil
 from argparse import ArgumentParser
 import re
 import pandas as pd
+import os
+import warnings
+
 from pyteomics import mgf
 import spectrum_utils.spectrum as sus
 import spectrum_utils.plot as sup
-import os
-import warnings
+
+from prosit_model import msp_parser
+import params.constants_location as constants_location
+import params.constants as constants
+
 import matplotlib
 import matplotlib.pyplot as plt
 matplotlib.use('Agg')
@@ -234,8 +238,9 @@ def main():
 
     assert predict_format == 'msp', "PREDICT_FORMAT should be 'msp'"
     peptidelistfile = predict_csv
-    if not os.path.exists(plot_dir):
-        os.makedirs(plot_dir)
+    if os.path.exists(plot_dir):
+        shutil.rmtree(plot_dir)  # Remove directory and its contents
+    os.makedirs(plot_dir)
 
     # get list of peptides for plotting
     peplist = peplist_from_csv(peptidelistfile)

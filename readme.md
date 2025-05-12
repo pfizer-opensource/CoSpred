@@ -90,7 +90,7 @@ python model_construct.py
 
 * Convert rawfiles into mzml and mgf
 
-Msconvert can be run using GUI version of the software on windows computer or can use Docker on linux machine. We recommend to run MSCovert in Windows GUI. At the end, assuming two files were generated, `example.mzML` and `example.mgf`. Keep these two files together with `example_PSMs.txt` got from Proteome Discoverer in the folder `data/example`.
+Msconvert can be run using GUI version of the software on windows computer or can use Docker on linux machine. We recommend to run MSCovert in Windows GUI. At the end, assuming files were generated, `*.mzML` and `*.mgf`. Keep these two type of files in folder `data/example/mzml` and `data/example/mgf` respectively, together with `example_PSMs.txt` and `example_InputFiles.txt` got from Proteome Discoverer in the folder `data/example`. Note that all file and folders names could be defined in the `params/constants_location.py`.
 
 * OPTION 1: The MGF file doesn't contain sequence information
     * Split the dataset into train and test set. (About 15mins for 300k spectra)
@@ -103,7 +103,7 @@ Msconvert can be run using GUI version of the software on windows computer or ca
     
     * OPTION 1.1: Pair database search result with MGF spectrum, annotate B and Y ion for MSMS spectrum
 
-    Pyteomics is used to parse annotations of y and b ions and their fragments charges from MZML and MGF, and report to annotated MGF files for downstream Prosit application. Note that to parse the input file correctly, you will likely need to adjust regex routine according to the specific MGF format you are using. (About 1 hour for the example dataset)
+    Pyteomics is used to parse annotations of y and b ions and their fragments charges from MZML and MGF, and report to annotated MGF files for downstream spectrum prediction/viewing application. Note that to parse the input file correctly, you will likely need to adjust regex routine (in the `reformatMGF` function within `io_cospred.py`) according to the specific MGF format you are using. (About 1 hour for the example dataset)
 
     ```bash
     python rawfile2hdf_byion.py -w train
@@ -150,15 +150,22 @@ During the training procedure under each epoch, model weights files will be auto
 
 #### Note: Usage for novel modification
 
-To fine-tune the foundation model or re-train the model, following scripts and parameters needs to be modified.
+To fine-tune the foundation model or re-train the model, following scripts and parameters needs to be modified. In this demo, we will use a non unimod chemical modification "Desthiobiotin" for example.
 
 1. Verify the Modification Format:
-* Ensure that the modification (DTBIA) is properly mapped in your `constants.py` file. 
+* Ensure that the related information of (DTBIA) is properly added in your `constants.py` file, as following.
 ```python
-MODIFICATION = {
-    "DTBIA": 296.185,  # Desthiobiotin
+# add to alphabet
+ALPHABET = {
+    "C(DTBIA)": 26,  # Alphabet
 }
-AMINO_ACID["C(DTBIA)"] = AMINO_ACID["C"] + MODIFICATION["DTBIA"]
+MODIFICATION_COMPOSITION = {
+    'C(DTBIA)': {'H': 24, 'C': 14, 'O': 3, 'N': 4},     # Chemical composition
+}
+VARMOD_PROFORMA = {
+    'C(DTBIA)': 'C[+296.185]',
+}
+
 ```
 2. Convert the Sequence to a Pyteomics-Compatible Format:
 * Use the VARMOD_PROFORMA dictionary in `constants.py` to map the modification (DTBIA) to a format that pyteomics can parse. For example:
