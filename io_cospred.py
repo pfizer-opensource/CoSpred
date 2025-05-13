@@ -667,7 +667,7 @@ def getPSM(psmfile, mgf_dir, mappingfile=None):
 
     dbsearch = dbsearch[dbsearch["seq"].str.len() <= 30]  # Remove sequences longer than 30
 
-    # Parse modifications dynamically using constants.MODIFICATION
+    # Parse modifications dynamically
     seq_list = dbsearch["seq"].tolist()
     mod_list = dbsearch["modifications"].tolist()
     modseq_list = []
@@ -679,6 +679,8 @@ def getPSM(psmfile, mgf_dir, mappingfile=None):
         modseq_list.append(letter)
         modnum_list.append(0)
     proforma_list = copy.deepcopy(modseq_list)
+    # make sure later concatenate aligns
+    dbsearch = dbsearch.reset_index(drop=True)
 
     # Dynamically parse modifications
     for mod_name, mod_format in constants.VARMOD_PROFORMA.items():
@@ -686,8 +688,6 @@ def getPSM(psmfile, mgf_dir, mappingfile=None):
             targetmod = f"[{mod_name.split('(')[0]}][0-9]+\\({mod_name.split('(')[1].rstrip(')')}\\)"
         elif "+" in mod_name:
             targetmod = f"{mod_name.split('+')[0]}\\+{mod_name.split('+')[1]}"
-        else:
-            continue
 
         for k in range(len(dbsearch)):
             if mod_list[k] and mod_list[k] != "":
@@ -701,6 +701,10 @@ def getPSM(psmfile, mgf_dir, mappingfile=None):
                     proforma_list[k][i - 1] = proforma_list[k][i - 1] + f"[{mod_format.split('[')[1].rstrip(']')}]"
                     modnum_list[k] += 1
 
+    # Ensure all lists have the same length as seq_list
+    assert len(seq_list) == len(modseq_list) == len(proforma_list), "List lengths are inconsistent!"
+
+    # Add the processed data back to dbsearch
     dbsearch["modifiedseq"] = pd.Series(["".join(x) for x in modseq_list])
     dbsearch["proforma"] = pd.Series(["".join(x) for x in proforma_list])
     dbsearch["mod_num"] = pd.Series(modnum_list).astype(str)
@@ -710,6 +714,9 @@ def getPSM(psmfile, mgf_dir, mappingfile=None):
     # Reset index and recreate title for mzML matching
     dbsearch = dbsearch.reset_index(drop=True)
     dbsearch["title"] = "mzspec:repoID:" + dbsearch["file"] + ":scan:" + dbsearch["scan"].astype(str)
+    
+    # write dbsearch to csv
+    dbsearch.to_csv(mgf_dir+'/temp_dbsearch.csv', index=False)
 
     return dbsearch
 
