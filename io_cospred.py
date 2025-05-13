@@ -715,9 +715,6 @@ def getPSM(psmfile, mgf_dir, mappingfile=None):
     dbsearch = dbsearch.reset_index(drop=True)
     dbsearch["title"] = "mzspec:repoID:" + dbsearch["file"] + ":scan:" + dbsearch["scan"].astype(str)
     
-    # write dbsearch to csv
-    dbsearch.to_csv(mgf_dir+'/temp_dbsearch.csv', index=False)
-
     return dbsearch
 
 
