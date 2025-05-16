@@ -451,8 +451,15 @@ def prediction_transformer(predict_batch_dir, predict_result_file, combined_file
     # Set the device (CPU or GPU)
     d_spectra["device"] = 'cpu'
     if torch.cuda.is_available():
-        d_spectra["device"] = torch.cuda.current_device()
-        d_spectra["model"] = torch.nn.DataParallel(d_spectra["model"]).to(d_spectra["device"])
+        # Set a specific device explicitly instead of using current_device
+        device_id = 0  # or whichever GPU you want to use
+        d_spectra["device"] = torch.device(f'cuda:{device_id}')
+        torch.cuda.set_device(device_id)  # Explicitly set CUDA device
+        d_spectra["model"] = torch.nn.DataParallel(d_spectra["model"], device_ids=[device_id]).to(d_spectra["device"])
+    # if torch.cuda.is_available():
+    #     d_spectra["device"] = torch.cuda.current_device()
+    #     # d_spectra["device"] = torch.device(f'cuda:{torch.cuda.current_device()}')
+    #     d_spectra["model"] = torch.nn.DataParallel(d_spectra["model"]).to(d_spectra["device"])
 
     # Prepare data for batch processing
     if flag_chunk:
@@ -479,15 +486,21 @@ def prediction_transformer(predict_batch_dir, predict_result_file, combined_file
     # Perform predictions in batches
     for batch_idx, batch in enumerate(data_generator):
         if flag_chunk:
-            x_batch = [torch.tensor(np.array(batch[column])) for column in d_spectra["config"]["x"]]
+            x_batch = [torch.tensor(np.array(batch[column]), device=d_spectra["device"]) for column in d_spectra["config"]["x"]]
+            # x_batch = [torch.tensor(np.array(batch[column])) for column in d_spectra["config"]["x"]]
             x_batch = torch.cat(x_batch, dim=1)
         else:
-            x_batch = batch[0]
-
+            x_batch = batch[0].to(d_spectra["device"])  # Also ensure non-chunk case uses the device
+            # x_batch = batch[0]
+        logging.info(f"Model device: {next(d_spectra['model'].parameters()).device}")
+        logging.info(f"x_batch device: {x_batch.device}")
         logging.info(f"Processing batch {batch_idx + 1}/{num_batches}, batch size: {x_batch.shape[0]}")
 
+        # No need for another .to(device) since tensors are already on the right device
+        # prediction = d_spectra["model"].forward(x_batch)[0].half()
+
         # Perform prediction for the batch and ensure x_batch is cast to float16
-        x_batch = x_batch.to(d_spectra["device"])
+        # x_batch = x_batch.to(d_spectra["device"])
 
         # Ensure the model is also in float16 precision
         prediction = d_spectra["model"].forward(x_batch)[0].half()
