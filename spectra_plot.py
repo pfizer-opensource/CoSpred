@@ -98,8 +98,11 @@ def mirroplot_twopeptides(peplist, predict_mgf, plot_dir, min_mz=0, min_intensit
             spectra.append(spectrum)
 
     fig, ax = plt.subplots(figsize=(12, 6))
+    if len(spectra) != 2:
+        logging.error("Expected exactly 2 spectra, but got {}".format(len(spectra)))
+        return
     spectrum_top, spectrum_bottom = spectra
-    plt.title(re.sub('/', '_', spectrum_top.identifier)+"_vs_" +
+    plt.title(re.sub('/', '_', spectrum_top.identifier) + "_vs_" +
               re.sub('/', '_', spectrum_bottom.identifier))
     sup.mirror(spectrum_top, spectrum_bottom, ax=ax)
     doubleplot_dir = plot_dir+'doubleplot/'

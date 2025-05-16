@@ -8,7 +8,6 @@ rm -rf CoSpred
 
 # clone repo
 git clone https://github.com/pfizer-opensource/CoSpred.git --depth 1
-# git -C CoSpred pull || git clone https://github.com/pfizer-opensource/CoSpred.git CoSpred --depth 1
 
 # copy example data and models to the corresponding directory
 mkdir -p CoSpred/prediction
@@ -21,7 +20,7 @@ cd CoSpred
 
 # --- For the codes below, uncomment sessions based on the needs --- #
 ## Split the dataset into train and test set. (about 3 mins)
-# python rawfile2hdf_prosit.py -w split
+# python rawfile2hdf_cospred.py -w split
 
 ## Pair database search result with MGF spectrum, reformat to full MSMS using bins. (about 1 min)
 # python rawfile2hdf_cospred.py -w train
@@ -31,9 +30,9 @@ cd CoSpred
 # python training_cospred.py -fc
 
 ## spectrum prediction from sequence
-python prediction.py -fc
+python prediction.py -fe
 
-## plotting spectrum
+## plotting spectrum (only applicable to post prediction+evaluation workflow)
 python spectra_plot.py
 # --- END of main codes --- #
 

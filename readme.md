@@ -21,6 +21,7 @@ To best test and experience usage of the software, we recommend to use docker en
 - [Docker Community Edition (CE)](https://www.docker.com/community-edition)
 - [nvidia-container-runtime](https://docs.docker.com/config/containers/resource_constraints/#gpu) for code that leverages the GPU
 - [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) to use GPU in docker container.
+- [GLIBCXX] Updated GCC compiler, version >= 3.4.29.
 
 ### 2. Setup the computing environment
 
@@ -33,7 +34,7 @@ docker pull xuel12pfizer/cospred:v0.2
 
 #### Option 2: Build the computational environment locally
 
-This [Code Ocean](https://codeocean.com) Compute Capsule will allow you to reproduce the results published by the author on your local machine by following the instructions below.
+The provided dockerfile will allow you to reproduce the workflow and results published by the author on your local machine by following the instructions below.
 
 > If there's any software requiring a license that needs to be run during the build stage, you'll need to make your license available. 
 
@@ -46,7 +47,7 @@ cd environment && docker build . --tag cospred_docker; cd ..
 
 ### 3. Run the docker container to reproduce the results
 
-In your terminal, navigate to the `demo` folder with the example data in `demo/data` that you've extracted before, where you've extracted the capsule and execute the following command, run the docker container using the image just built in the previous session named `cospred_docker`, adjust parameters as needed (e.g. fot the machine that doesn't have GPU, remove the option flag `--gpus all`).
+Following is for the purpose of experiencing the end-to-end workflow. In your terminal, navigate to the `demo` folder with the data `example.zip` and `pretrain_model.zip` in `demo/data` that you've downloaded from FigShare.Execute the following command, run the docker container using the image just built in the previous session named `cospred_docker`, adjust parameters as needed (e.g. fot the machine that doesn't have GPU, remove the option flag `--gpus all`).
 
 ```shell
 docker run --platform linux/amd64 --rm --gpus all \

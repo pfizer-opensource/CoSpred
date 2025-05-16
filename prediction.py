@@ -749,7 +749,7 @@ def predict(predict_csv, predict_dir, predict_format, predict_hdf5, predict_ds,
             # logging.info(f"[USER] All predicted spectra library files were combined into: {speclib_file}")
             
             # Evaluate predictions if flag_evaluate is True
-            if flag_evaluate is True and len(combined_dict.keys() > 0):
+            if flag_evaluate is True and len(combined_dict.keys()) > 0:
                 eval_dir = os.path.join(predict_lib_dir, f"evaluation_{speclib_filename}")
                 evaluate_predictions(combined_dict, combined_dict, predict_df, eval_dir)
 
