@@ -55,18 +55,15 @@ Install all the packages given in `conf/requirements_cospred_*.yml` in a virtual
 conda env create -n cospred_cuda12_gpu_py39 -f conf/requirements_cospred_cuda12_gpu_py39.yml
 ```
 
-Or use the package manager [pip](https://pip.pypa.io/en/stable/) to install dependencies specified in the YAML files.
-
 ### 3. Reproduce the workflow and results in batch mode
 
-Following is for the purpose of experiencing the end-to-end workflow. Presumably the data `example.zip` and model `pretrain_model.zip` have been kept in `data` folder that you've downloaded from FigShare. Execute the following command, run the docker container using the image just built in the previous session named `cospred_docker`, adjust parameters as needed (e.g. fot the machine that doesn't have GPU, remove the option flag `--gpus all`; for some system has restriction about shared memory for GPU, adjust `--shm-size` flag; or anything specific for your docker environment).
+Following is for the purpose of experiencing the end-to-end workflow. Presumably the data `example.zip` and model `pretrain_model.zip` have been kept in `data` folder that you've downloaded from FigShare. Execute the following command, run the docker container using the image just built in the previous session named `cospred_docker`, adjust parameters as needed (e.g. fot the machine that doesn't have GPU, remove the option flag `--gpus all`; for some system has restriction on shared memory for GPU, adjust `--shm-size` flag; or anything specific for your docker environment).
 
 #### 3.1 Use Case I: Batch mode for training using Docker
 ```shell
 docker run --platform linux/amd64 --rm --gpus all \
   --volume "$PWD/data":/data \
   --volume "$PWD/results":/results \
-  --volume "$PWD/scripts":/CoSpred/scripts \
   cospred_docker bash "scripts/run_training.sh"
 ```
 
@@ -75,17 +72,16 @@ docker run --platform linux/amd64 --rm --gpus all \
 docker run --platform linux/amd64 --rm --gpus all \
   --volume "$PWD/data":/data \
   --volume "$PWD/results":/results \
-  --volume "$PWD/scripts":/CoSpred/scripts \
   cospred_docker bash "scripts/run_prediction.sh"
 ```
 
-The final results will be stored in `results` folder.
+* When finished, the final results will be stored in `results` folder.
 
-### 4. Reproduce the workflow and results in interactive mode
+## Reproducing the workflow and results in interactive mode
 
 For advanced usage, the following are the step-by-step guides for fine-grain control modular execution of CoSpred.
 
-* Option 1: Docker interactive mode
+* OPTION 1: Docker with interactive mode
   
 ```shell
 docker run --platform linux/amd64 --rm -it --gpus all \
@@ -95,14 +91,14 @@ docker run --platform linux/amd64 --rm -it --gpus all \
   cospred_docker
 ```
 
-* Option 2: Viturtual environment
+* OPTION 2: Viturtual environment
 ```shell
 conda activate cospred_cuda12_gpu_py39
 ```
 
-Once in `CoSpred` working directory, move forward to following steps.
+Once done the environment setup, navigate to `CoSpred` working directory, move forward to following steps.
 
-### 5. Configuration
+### 1. Configuration
 
 * Main configuration regarding file location and preprocessing parameters could be found and modified in `params` folder. 
 * For all the following modules, log files could be found under `prediction` folder.
@@ -113,7 +109,7 @@ python model_construct.py
 ```
 * For transformer based model setup, users could directly modify `cospred_model/model/transformerEncoder.py`, as well `train_transformer` module in `training_cospred.py`. 
 
-### 6. Data Preprocessing
+### 2. Data Preprocessing
 
 #### Database search and pair identification with spectra
 
@@ -128,7 +124,7 @@ Msconvert can be run using GUI version of the software on windows computer or ca
 * OPTION 1: The MGF file doesn't contain sequence information
     * Split the dataset into train and test set. (About 15mins for 300k spectra)
 
-    20% spectra will be randomly selected for test by default, which could be modified in the script. `example_train.mgf` and `example_test.mgf` will be generated from this step. `rawfile2hdf_byion.py` (preparing dataset with b/y ion annotation) and `rawfile2hdf_cospred.py` (preparing dataset for full spectrum representation) are the scripts for this purpose. (About 2 minitues for the example dataset)
+    20% spectra will be randomly selected for test by default, which could be modified in the script. `example_train.mgf` and `example_test.mgf` will be generated from this step. `rawfile2hdf_byion.py` (preparing dataset with b/y ion annotation) and `rawfile2hdf_cospred.py` (preparing dataset for full spectrum representation) are the scripts for this purpose. (2019 Macbook Pro, about 2 minitues for the example dataset)
 
     ```bash
     python rawfile2hdf_cospred.py -w split
@@ -136,14 +132,14 @@ Msconvert can be run using GUI version of the software on windows computer or ca
     
     * OPTION 1.1: Pair database search result with MGF spectrum, annotate B and Y ion for MSMS spectrum
 
-    Pyteomics is used to parse annotations of y and b ions and their fragments charges from MZML and MGF, and report to annotated MGF files for downstream spectrum prediction/viewing application. Note that to parse the input file correctly, you will likely need to adjust regex routine (in the `reformatMGF` function within `io_cospred.py`) according to the specific MGF format you are using. (About 1 hour for the example dataset)
+    Pyteomics is used to parse annotations of y and b ions and their fragments charges from MZML and MGF, and report to annotated MGF files for downstream spectrum prediction/viewing application. Note that to parse the input file correctly, you will likely need to adjust regex routine (in the `reformatMGF` function within `io_cospred.py`) according to the specific MGF format you are using. (2019 Macbook Pro, about 1 hour for the example dataset)
 
     ```bash
     python rawfile2hdf_byion.py -w train
     python rawfile2hdf_byion.py -w test
     ```
 
-    * OPTION 1.2: Pair database search result with MGF spectrum, reformat to full MSMS using bins. (About 2 minitues for the example dataset)
+    * OPTION 1.2: Pair database search result with MGF spectrum, reformat to full MSMS using bins. (2019 Macbook Pro, about 2 minitues for the example dataset)
 
     ```bash
     python rawfile2hdf_cospred.py -w train
@@ -161,7 +157,7 @@ python mgf2hdf_cospred.py -w test           # Convert testing set into full spec
 
 At the end, a few files will be generated. `train.hdf5` and `test.hdf5` are input files for the following ML modules.
 
-### 7. In-house training procedure
+### 3. In-house training procedure
 
 `training_cospred.py` is the script for customized training. Workflows could be selected by arguments, including 1) `-t`: fine-tuning / continue training the existing model; 2) `-f`: opt in full MS/MS spectrum model instead of B/Y ions; 3) `-c`: chunking the input dataset (to prevent memory overflow by large dataset); 4) `-b`: opt in for BiGRU model instead of Transformer.
 
@@ -201,11 +197,11 @@ VARMOD_PROFORMA = {
 }
 ```
 
-### 8. Inference
+### 4. Inference
 
 Keep the best model under `model_spectra` folder as the trained model for inference phase. Some pre-trained model can be downloaded from [FigShare](https://figshare.com/s/8a60e7017cd82db9a1b7). 
 
-#### 8.1 Spectrum library generation
+#### 4.1 Spectrum library generation
 
 With trained models, predict spectrum given peptide sequences from `peptidelist_test.csv`. All inference results including metrics, plots, and spectra library will be stored under `prediction` folder. Predicted spectra will be stored in `speclib_prediction.msp`.
 
@@ -219,9 +215,9 @@ python prediction.py -f   # Predict full spectrum prediction using Transformer a
 python prediction.py -fc   # Predict full spectrum prediction using Transformer architecture, with chunking for accomodating large peptide list. 
 ```
 
-#### 8.2 Spectrum library prediction with reference for evaluation
+#### 4.2 Spectrum library prediction with reference for evaluation
 
-Optionally, performance evaluation will be executed with `-e` argument, as long as ground truth a) `test.hdf5` or b) `example_PSMs.txt` with `test_usi.mgf` are provided, so that reference spectrum for the peptides could be extracted from database search result and the raw mass-spec data. Examples as below.
+Optionally, performance evaluation could be executed with `-e` argument, as long as ground truth a) `test.hdf5` or b) `example_PSMs.txt` with `test_usi.mgf` are provided, so that reference spectrum for the peptides could be extracted from database search result and the raw mass-spec data. Examples as below.
 
 ```bash
 python prediction.py -be   # Predict B/Y ion spectrum prediction using BiGRU architecture.
@@ -233,7 +229,7 @@ python prediction.py -fce   # Predict full spectrum prediction using Transformer
 
 The outputs of prediction will be generated under `prediction`, including predicted spectra library `speclib_prediction.msp` and `speclib_prediction.mgf`, plots and metrics under `prediction_library`, some other intermediate files for recording or diagnosis purpose.
 
-### 9. Plotting
+### 5. Plotting
 Predicted spectrum and mirror plot for visual evaluation could be separately generated by `spectra_plot.py`. By default, the required inputs are `peptidelist_predict.csv` (peptides list), `test_reformatted.mgf` (reference spectra), and `speclib_prediction.mgf` (predicited spectra). File names and location could be defined by `params/constants`. Plots will be stored in `prediction/plot` folder.
 
 ```bash

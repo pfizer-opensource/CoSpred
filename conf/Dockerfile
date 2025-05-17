@@ -26,11 +26,11 @@ RUN conda init bash \
 
 ENV PATH=/opt/conda/envs/cospred_cuda12_gpu_py39/bin:$PATH
 
-# Set the working directory (optional, adjust as needed)
+# Set the working directory
 WORKDIR /
 
-# Copy the application files into the container (optional, adjust as needed)
-RUN git clone https://github.com/pfizer-opensource/CoSpred.git
+# Force update the repository by removing it first (if it exists)
+RUN rm -rf CoSpred && git clone https://github.com/pfizer-opensource/CoSpred.git
 
 WORKDIR /CoSpred
 

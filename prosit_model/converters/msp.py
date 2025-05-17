@@ -251,6 +251,7 @@ class Converter():
                     f.write("\n")
                 first_spec = False
                 f.write(str(spec))
+            f.write("\n")
         return spec
 
 
