@@ -188,6 +188,7 @@ wandb/
 obsolete/
 miscellaneous/
 archive/
+code_alt/
 data/*
 logs/*
 examples/

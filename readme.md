@@ -25,52 +25,84 @@ To best test and experience usage of the software, we recommend to use docker en
 
 ### 2. Setup the computing environment
 
-- Git clone the repo, download the pre-trained model `pretrained_models.zip` and `example.zip` from [FigShare](https://figshare.com/s/8a60e7017cd82db9a1b7), create a data folder `CoSpred/demo/data`, and store two zip files there.
+- Git clone the repo, download the pre-trained model `pretrained_models.zip` and `example.zip` from [FigShare](https://figshare.com/s/8a60e7017cd82db9a1b7), create a data folder `CoSpred/data`, and store two zip files there.
 
-#### Option 1: Pull the pre-built docker image
+#### 2.1 Configure environment using Docker
+
+##### Option 1: Pull the pre-built docker image
 ```shell
-docker pull xuel12pfizer/cospred:v0.2
+docker pull xuel12pfizer/cospred:v0.3
 ```
 
-#### Option 2: Build the computational environment locally
+##### Option 2: Build the computational environment locally
 
 The provided dockerfile will allow you to reproduce the workflow and results published by the author on your local machine by following the instructions below.
 
 > If there's any software requiring a license that needs to be run during the build stage, you'll need to make your license available. 
 
-In your terminal, navigate to the `demo` folder with the example data in `demo/data` that you've extracted before, and execute the following command:
+In your terminal, navigate to the `CoSpred` folder with the example data in `data` that you've extracted before, and execute the following command:
 
 ```shell
-cd environment && docker build . --tag cospred_docker; cd ..
+docker build . --tag cospred_docker -f conf/requirements_cospred_cuda12_gpu_py39.yml
 ```
 > This step will recreate the environment (i.e., the Docker image) locally, fetching and installing any required dependencies in the process. If any external resources have become unavailable for any reason, the environment will fail to build. Note that in this example, the docker image name is `cospred_docker` which will be refered in the following session.
 
-### 3. Run the docker container to reproduce the results
+##### Option 3: Create virtual environment and package installation
 
-Following is for the purpose of experiencing the end-to-end workflow. In your terminal, navigate to the `demo` folder with the data `example.zip` and `pretrain_model.zip` in `demo/data` that you've downloaded from FigShare.Execute the following command, run the docker container using the image just built in the previous session named `cospred_docker`, adjust parameters as needed (e.g. fot the machine that doesn't have GPU, remove the option flag `--gpus all`).
-
-```shell
-docker run --platform linux/amd64 --rm --gpus all \
-  --workdir /capsule \
-  --volume "$PWD/data":/data \
-  --volume "$PWD/capsule":/capsule \
-  --volume "$PWD/results":/results \
-  cospred_docker bash run.sh
-```
-
-## Advance usage in native mode
-
-### 1. Installation
-
-Install all the packages given in `conf/requirements_cospred_*.yml` in a virtual environment
+Install all the packages given in `conf/requirements_cospred_*.yml` in a virtual environment. 
 
 ```bash
-conda env create -n cospred_gpu_py39 -f conf/requirements_cospred_gpu_py39.yml
+conda env create -n cospred_cuda12_gpu_py39 -f conf/requirements_cospred_cuda12_gpu_py39.yml
 ```
 
 Or use the package manager [pip](https://pip.pypa.io/en/stable/) to install dependencies specified in the YAML files.
 
-### 2. Configuration
+### 3. Reproduce the workflow and results in batch mode
+
+Following is for the purpose of experiencing the end-to-end workflow. Presumably the data `example.zip` and model `pretrain_model.zip` have been kept in `data` folder that you've downloaded from FigShare. Execute the following command, run the docker container using the image just built in the previous session named `cospred_docker`, adjust parameters as needed (e.g. fot the machine that doesn't have GPU, remove the option flag `--gpus all`; for some system has restriction about shared memory for GPU, adjust `--shm-size` flag; or anything specific for your docker environment).
+
+#### 3.1 Use Case I: Batch mode for training using Docker
+```shell
+docker run --platform linux/amd64 --rm --gpus all \
+  --volume "$PWD/data":/data \
+  --volume "$PWD/results":/results \
+  --volume "$PWD/scripts":/CoSpred/scripts \
+  cospred_docker bash "scripts/run_training.sh"
+```
+
+#### 3.2 Use Case II: Batch mode for prediction using Docker
+```shell
+docker run --platform linux/amd64 --rm --gpus all \
+  --volume "$PWD/data":/data \
+  --volume "$PWD/results":/results \
+  --volume "$PWD/scripts":/CoSpred/scripts \
+  cospred_docker bash "scripts/run_prediction.sh"
+```
+
+The final results will be stored in `results` folder.
+
+### 4. Reproduce the workflow and results in interactive mode
+
+For advanced usage, the following are the step-by-step guides for fine-grain control modular execution of CoSpred.
+
+* Option 1: Docker interactive mode
+  
+```shell
+docker run --platform linux/amd64 --rm -it --gpus all \
+  --volume "$PWD/data":/data \
+  --volume "$PWD/results":/results \
+  --shm-size=32g \
+  cospred_docker
+```
+
+* Option 2: Viturtual environment
+```shell
+conda activate cospred_cuda12_gpu_py39
+```
+
+Once in `CoSpred` working directory, move forward to following steps.
+
+### 5. Configuration
 
 * Main configuration regarding file location and preprocessing parameters could be found and modified in `params` folder. 
 * For all the following modules, log files could be found under `prediction` folder.
@@ -81,7 +113,7 @@ python model_construct.py
 ```
 * For transformer based model setup, users could directly modify `cospred_model/model/transformerEncoder.py`, as well `train_transformer` module in `training_cospred.py`. 
 
-### 3. Data Preprocessing
+### 6. Data Preprocessing
 
 #### Database search and pair identification with spectra
 
@@ -129,7 +161,7 @@ python mgf2hdf_cospred.py -w test           # Convert testing set into full spec
 
 At the end, a few files will be generated. `train.hdf5` and `test.hdf5` are input files for the following ML modules.
 
-### 4. In-house training procedure
+### 7. In-house training procedure
 
 `training_cospred.py` is the script for customized training. Workflows could be selected by arguments, including 1) `-t`: fine-tuning / continue training the existing model; 2) `-f`: opt in full MS/MS spectrum model instead of B/Y ions; 3) `-c`: chunking the input dataset (to prevent memory overflow by large dataset); 4) `-b`: opt in for BiGRU model instead of Transformer.
 
@@ -153,58 +185,27 @@ During the training procedure under each epoch, model weights files will be auto
 
 To fine-tune the foundation model or re-train the model, following scripts and parameters needs to be modified. In this demo, we will use a non unimod chemical modification "Desthiobiotin" for example.
 
-1. Verify the Modification Format:
 * Ensure that the related information of (DTBIA) is properly added in your `constants.py` file, as following.
 ```python
 # add to alphabet
 ALPHABET = {
     "C(DTBIA)": 26,  # Alphabet
 }
+# define the chemical composition
 MODIFICATION_COMPOSITION = {
     'C(DTBIA)': {'H': 24, 'C': 14, 'O': 3, 'N': 4},     # Chemical composition
 }
+# annotate the novel modification with proforma, so that pyteomics library can parse
 VARMOD_PROFORMA = {
     'C(DTBIA)': 'C[+296.185]',
 }
-
-```
-2. Convert the Sequence to a Pyteomics-Compatible Format:
-* Use the VARMOD_PROFORMA dictionary in `constants.py` to map the modification (DTBIA) to a format that pyteomics can parse. For example:
-```python
-VARMOD_PROFORMA = {
-    'C\\+296.185': 'C[DTBIA]',
-    # Other mappings...
-}
-```
-3. Update the Code in `msp.py`:
-* Modify the code in msp.py to preprocess the sequence before calculating the mass:
-
-1. In `msp.py`, update the following code chunk
-``` python
-def generate_aa_comp():    
-    # ... previous code block
-    # Desthiobiotin: H(24) C(14) O(3) N(4)
-    aa_comp["dtbiaC"] = aa_comp["C"] + {'H': 24, 'C': 14, 'O': 3, 'N': 4}
-    return aa_comp
-
-class Spectrum(object):
-    def __init__(
-        # codes
-    ):
-      self.precursor_mass = pyteomics.mass.calculate_mass(
-                  # previous codes
-                  self.sequence.replace("C(DTBIA)", "dtbiaC"), # Desthiobiotin
-                  # other codes
-              )
-    # other codes
 ```
 
-
-### 5. Inference
+### 8. Inference
 
 Keep the best model under `model_spectra` folder as the trained model for inference phase. Some pre-trained model can be downloaded from [FigShare](https://figshare.com/s/8a60e7017cd82db9a1b7). 
 
-#### 5.1 Spectrum library generation
+#### 8.1 Spectrum library generation
 
 With trained models, predict spectrum given peptide sequences from `peptidelist_test.csv`. All inference results including metrics, plots, and spectra library will be stored under `prediction` folder. Predicted spectra will be stored in `speclib_prediction.msp`.
 
@@ -218,7 +219,7 @@ python prediction.py -f   # Predict full spectrum prediction using Transformer a
 python prediction.py -fc   # Predict full spectrum prediction using Transformer architecture, with chunking for accomodating large peptide list. 
 ```
 
-#### 5.2 Spectrum library prediction with reference for evaluation
+#### 8.2 Spectrum library prediction with reference for evaluation
 
 Optionally, performance evaluation will be executed with `-e` argument, as long as ground truth a) `test.hdf5` or b) `example_PSMs.txt` with `test_usi.mgf` are provided, so that reference spectrum for the peptides could be extracted from database search result and the raw mass-spec data. Examples as below.
 
@@ -232,7 +233,7 @@ python prediction.py -fce   # Predict full spectrum prediction using Transformer
 
 The outputs of prediction will be generated under `prediction`, including predicted spectra library `speclib_prediction.msp` and `speclib_prediction.mgf`, plots and metrics under `prediction_library`, some other intermediate files for recording or diagnosis purpose.
 
-### 6. Plotting
+### 9. Plotting
 Predicted spectrum and mirror plot for visual evaluation could be separately generated by `spectra_plot.py`. By default, the required inputs are `peptidelist_predict.csv` (peptides list), `test_reformatted.mgf` (reference spectra), and `speclib_prediction.mgf` (predicited spectra). File names and location could be defined by `params/constants`. Plots will be stored in `prediction/plot` folder.
 
 ```bash
