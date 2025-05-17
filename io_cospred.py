@@ -151,7 +151,7 @@ def get_array(tensor, keys):
     return [tensor[key] for key in keys]
 
 
-def get_2darray(vals, dtype=np.float16):
+def get_2darray(vals, dtype=np.float32):
     a = np.array(vals.values.tolist())
     a = a.astype(dtype)
     return a

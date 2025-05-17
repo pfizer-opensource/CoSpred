@@ -10,106 +10,15 @@ from argparse import ArgumentParser
 import random
 import shutil
 
+import io_cospred
 import params.constants_location as constants_location
 from params.constants import (
     SPECTRA_DIMENSION, BIN_MAXMZ, BIN_SIZE,
-    CHARGES,
-    MAX_SEQUENCE,
-    ALPHABET,
     FIXMOD_PROFORMA,
     VARMOD_PROFORMA,
-    METHODS,
 )
 from preprocess import utils
 from prosit_model import io_local
-
-
-def peptide_parser(p):
-    p = p.replace("_", "")
-    if p[0] == "(":
-        raise ValueError("sequence starts with '('")
-    n = len(p)
-    i = 0
-    while i < n:
-        if i < n - 3 and p[i + 1] == "(":
-            j = p[i + 2:].index(")")
-            offset = i + j + 3
-            yield p[i:offset]
-            i = offset
-        else:
-            yield p[i]
-            i += 1
-
-
-def get_sequence_integer(sequences, dtype='i1'):
-    array = np.zeros([len(sequences), MAX_SEQUENCE])
-    for i, sequence in enumerate(sequences):
-        if len(sequence) > MAX_SEQUENCE:
-            pass
-        else:
-            for j, s in enumerate(utils.peptide_parser(sequence)):
-                array[i, j] = ALPHABET[s]
-    array = array.astype(dtype)
-    return array
-
-
-def get_float(vals, dtype=np.float16):
-    a = np.array(vals).astype(dtype)
-    a = a.reshape([len(vals), 1])
-    return a
-
-
-def get_boolean(vals, dtype=bool):
-    a = np.array(vals).astype(dtype)
-    return a.reshape([len(vals), 1])
-
-
-def get_number(vals, dtype='i1'):
-    a = np.array(vals).astype(dtype)
-    a = a.reshape([len(vals), 1])
-    return a
-
-
-def get_2darray(vals, dtype=np.float16):
-    a = np.array(vals.values.tolist())
-    a = a.astype(dtype)
-    return a
-
-
-def get_precursor_charge_onehot(charges, dtype='i1'):
-    array = np.zeros([len(charges), max(CHARGES)])
-    for i, precursor_charge in enumerate(charges):
-        if precursor_charge > max(CHARGES):
-            pass
-        else:
-            array[i, int(precursor_charge) - 1] = 1
-    array = array.astype(dtype)
-    return array
-
-
-def get_method_onehot(methods, dtype=np.uint8):
-    array = np.zeros([len(methods), len(METHODS)])
-    for i, method in enumerate(methods):
-        for j, methodstype in enumerate(METHODS):
-            if method == methodstype:
-                array[i, j] = int(1)
-    array = array.astype(dtype)
-    return array
-
-
-def get_sequence_onehot(sequences, dtype=np.uint8):
-    array = np.zeros([len(sequences), MAX_SEQUENCE, len(ALPHABET)+1])
-    for i, sequence in enumerate(sequences):
-        j = 0
-        for aa in peptide_parser(p=sequence):
-            if aa in ALPHABET.keys():
-                array[i, j, ALPHABET[aa]] = int(1)
-            j += 1
-        while j < MAX_SEQUENCE:
-            array[i, j, 0] = int(1)
-            j += 1
-    array = array.astype(dtype)
-    return array
 
 
 def constructCospredVec(mz_arr, intensity_arr):
@@ -373,11 +282,11 @@ def generateHDF5_transformer_wSeq(usimgffile, reformatmgffile, csvfile,
 
     # construct Dataset based on CoSpred Transformer definition
     dataset = {
-        "collision_energy_aligned_normed": get_number(mzs_df['collision_energy_aligned_normed']),
-        "intensities_raw": get_2darray(mzs_df['intensities']),
-        "masses_pred": get_2darray(mzs_df['masses']),
-        "precursor_charge_onehot": get_precursor_charge_onehot(mzs_df['precursor_charge']),
-        "sequence_integer": get_sequence_integer(mzs_df['modified_sequence'])
+        "collision_energy_aligned_normed": io_cospred.get_float(mzs_df['collision_energy_aligned_normed'], dtype=np.float16),
+        "intensities_raw": io_cospred.get_2darray(mzs_df['intensities']).astype(np.float16),
+        "masses_pred": io_cospred.get_2darray(mzs_df['masses']).astype(np.float32),
+        "precursor_charge_onehot": io_cospred.get_precursor_charge_onehot(mzs_df['precursor_charge']).astype(np.uint8),
+        "sequence_integer": io_cospred.get_sequence_integer(mzs_df['modified_sequence']).astype(np.uint8)
     }
 
     return dataset

@@ -107,11 +107,14 @@ def csv(df, flag_fullspectrum=False):
         masses_pred = sanitize.mask_outofrange(masses_pred, lengths)
         masses_pred = sanitize.mask_outofcharge(masses_pred, df.precursor_charge)
         masses_pred = sanitize.reshape_flat(masses_pred)
+        # keep high resolution, which is important for b,y ions annotation
+        data["masses_pred"] = masses_pred.astype(np.float32)
     else:
         vector_mass = np.arange(0, BIN_MAXMZ, BIN_SIZE, dtype=np.float16)
         masses_pred = np.tile(vector_mass, (data['sequence_integer'].shape[0], 1))
+        # saving storage, since no enough resolution for high number of bins
+        data["masses_pred"] = masses_pred.astype(np.float16)        
 
-    data["masses_pred"] = masses_pred.astype(np.float16)
     data["intensities_raw"] = np.zeros(masses_pred.shape).astype(np.float16)
 
     return data
@@ -129,7 +132,7 @@ def hdf5(df, hdf5file):
     }
     with h5py.File(hdf5file, 'r') as f:
         # print(f.keys())
-        data["masses_pred"] = np.array(f['masses_pred']).astype(np.float16)
+        data["masses_pred"] = np.array(f['masses_pred']).astype(np.float32)
         data["intensities_raw"] = np.array(f['intensities_raw']).astype(np.float16)
     
     return data

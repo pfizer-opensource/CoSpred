@@ -196,7 +196,7 @@ class Converter():
         if self.flag_fullspectrum is False:
             IONS = get_ions().reshape(174, -1).flatten()
         else:
-            IONS = self.data['masses_pred'].reshape(self.data['masses_pred'].shape[1], -1).flatten().astype("|S6")
+            IONS = self.data['masses_pred'].reshape(self.data['masses_pred'].shape[1], -1).flatten().astype("|S12")
 
         with open(self.out_path, mode="w", encoding="utf-8") as f:
             first_spec = True
