@@ -350,11 +350,11 @@ def constructDataset_byion(csvfile):
         "method": io_cospred.get_method_onehot(df['method']).astype(np.uint8),
         "precursor_charge": df['precursor_charge'].astype(np.uint8),
         "precursor_charge_onehot": io_cospred.get_precursor_charge_onehot(df['precursor_charge']).astype(np.uint8),
-        "raw_file": df['raw_file'].astype('S32'),
+        "raw_file": df['raw_file'].astype('S60'),
         "reverse": io_cospred.get_boolean(df['reverse']),
         "scan_number": io_cospred.get_number(df['scan_number']),
         "score": io_cospred.get_float(df['score']),
-        "modified_sequence": df['modified_sequence'].astype('S32'),
+        "modified_sequence": df['modified_sequence'].astype('S60'),
         "sequence_integer": io_cospred.get_sequence_integer(df['modified_sequence']).astype(np.uint8),
         "sequence_onehot": io_cospred.get_sequence_onehot(df['modified_sequence']).astype(np.uint8),
     }

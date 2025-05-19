@@ -71,22 +71,16 @@ BACKWARD = {"x", "y", "z"}
 #     "DTBIA": 296.185,       # Desthiobiotin
 # }
 
-# MODIFICATION = {
-#     # 'M+15.995': 'M[Oxidation]',
-#     # 'S+79.966': 'S[Phospho]',
-#     # 'T+79.966': 'T[Phospho]',
-#     # 'Y+79.966': 'Y[Phospho]',
-#     # 'C(CAM)': 'C[Carbamidomethyl]',
-#     # 'C+57.021': 'C[Carbamidomethyl]',
-#     # 'C(DTBIA)': 'C[+296.185]',
-#     # 'C(+296.185)': 'C[+296.185]',
-#     'M(Oxidation)': 'M[Oxidation]',
-#     'S(Phospho)': 'S[Phospho]',
-#     'T(Phospho)': 'T[Phospho]',
-#     'Y(Phospho)': 'Y[Phospho]',
-#     'C(Carbamidomethyl)': 'C[Carbamidomethyl]',
-#     'C(DTBIA)': 'C[+296.185]',
-# }
+MODIFICATION = {
+    # 'Oxidation': 15.99491,
+    # 'Phospho': 79.966331,
+    # 'Carbamidomethyl': 57.0214637236,
+    # 'DTBIA': 296.185,
+    'OX': 15.99491,
+    'PH': 79.966331,
+    'CAM': 57.021464,
+    'DTBIA': 296.185,
+}
 
 # Customed modification
 MODIFICATION_COMPOSITION = {
@@ -150,12 +144,12 @@ AMINO_ACID = {
     "D": 115.026943,
     "K": 128.094963,
 }
-# AMINO_ACID["M(ox)"] = AMINO_ACID["M"] + MODIFICATION["OX"]
-# AMINO_ACID["S(ph)"] = AMINO_ACID["S"] + MODIFICATION["PH"]
-# AMINO_ACID["T(ph)"] = AMINO_ACID["T"] + MODIFICATION["PH"]
-# AMINO_ACID["Y(ph)"] = AMINO_ACID["Y"] + MODIFICATION["PH"]
-# AMINO_ACID["C(CAM)"] = AMINO_ACID["C"] + MODIFICATION["CAM"]
-# AMINO_ACID["C(DTBIA)"] = AMINO_ACID["C"] + MODIFICATION["DTBIA"]
+AMINO_ACID["M(Oxidation)"] = AMINO_ACID["M"] + MODIFICATION["OX"]
+AMINO_ACID["S(Phospho)"] = AMINO_ACID["S"] + MODIFICATION["PH"]
+AMINO_ACID["T(Phospho)"] = AMINO_ACID["T"] + MODIFICATION["PH"]
+AMINO_ACID["Y(Phospho)"] = AMINO_ACID["Y"] + MODIFICATION["PH"]
+AMINO_ACID["C(Carbamidomethyl)"] = AMINO_ACID["C"] + MODIFICATION["CAM"]
+AMINO_ACID["C(DTBIA)"] = AMINO_ACID["C"] + MODIFICATION["DTBIA"]
 
 
 # Atomic elements

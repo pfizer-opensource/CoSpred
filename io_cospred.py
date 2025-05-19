@@ -532,7 +532,7 @@ def constructDataset_frompep(csvfile, predict_csv):
         "collision_energy_aligned_normed": get_float(df['collision_energy']/100.0, dtype=np.float16),
         "precursor_charge":df['precursor_charge'].astype(np.uint8),
         "precursor_charge_onehot": get_precursor_charge_onehot(df['precursor_charge']).astype(np.uint8),
-        "modified_sequence": df['modified_sequence'].astype(str),
+        "modified_sequence": df['modified_sequence'].astype('S80'),
         "sequence_integer": get_sequence_integer(df['modified_sequence']).astype(np.uint8),
     }
 

@@ -29,6 +29,9 @@ ENV PATH=/opt/conda/envs/cospred_cuda12_gpu_py39/bin:$PATH
 # Set the working directory
 WORKDIR /
 
+# Add a build argument to invalidate the cache
+ARG BUILD_DATE
+
 # Force update the repository by removing it first (if it exists)
 RUN rm -rf CoSpred && git clone https://github.com/pfizer-opensource/CoSpred.git
 
