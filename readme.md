@@ -1,9 +1,6 @@
-# CoSpred
+# CoSpred: Machine learning workflow to predict tandem mass spectrum in proteomics
 
-Complete MSMS spectrum prediction workflow.
-
-This provide workflow to prepare your own training datasets from raw files and convert them into tensors.
-These tensors are input for machine learning architecure. The architecture can be build using Tensorflow or Pytorch framework.
+This project provides workflow to prepare your own training datasets from raw files and convert them into tensors. Those tensors are input for machine learning architecure. The architecture can be build using Tensorflow or Pytorch framework.
 
 Here we are predicting full MSMS spectrum as set of (Mi,Ii) where Mi is the mass of the peak and Ii is the intenisty of the peak. For the BiGRU model, the MSMS spectrum is presented as b/y ion series discribed in original Prosit paper.
 
@@ -22,6 +19,7 @@ To best test and experience usage of the software, we recommend to use docker en
 - [nvidia-container-runtime](https://docs.docker.com/config/containers/resource_constraints/#gpu) for code that leverages the GPU
 - [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) to use GPU in docker container.
 - [GLIBCXX] Updated GCC compiler, version >= 3.4.29.
+- Optional: Conda/Mamba installed
 
 ### 2. Setup the computing environment
 
@@ -187,6 +185,12 @@ To fine-tune the foundation model or re-train the model, following scripts and p
 ALPHABET = {
     "C(DTBIA)": 26,  # Alphabet
 }
+# define the mass
+MODIFICATION = {
+    'DTBIA': 296.185,
+}
+# add to amino acid
+AMINO_ACID["C(DTBIA)"] = AMINO_ACID["C"] + MODIFICATION["DTBIA"]
 # define the chemical composition
 MODIFICATION_COMPOSITION = {
     'C(DTBIA)': {'H': 24, 'C': 14, 'O': 3, 'N': 4},     # Chemical composition
