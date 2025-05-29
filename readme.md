@@ -41,7 +41,7 @@ The provided dockerfile will allow you to reproduce the workflow and results pub
 In your terminal, navigate to the `CoSpred` folder with the example data in `data` that you've extracted before, and execute the following command:
 
 ```shell
-docker build . --tag cospred_docker -f conf/requirements_cospred_cuda12_gpu_py39.yml
+docker build . --tag cospred_docker -f conf/Dockerfile
 ```
 > This step will recreate the environment (i.e., the Docker image) locally, fetching and installing any required dependencies in the process. If any external resources have become unavailable for any reason, the environment will fail to build. Note that in this example, the docker image name is `cospred_docker` which will be refered in the following session.
 
